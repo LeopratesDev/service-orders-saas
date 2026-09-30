@@ -1,14 +1,14 @@
 import type { NextConfig } from "next";
 
-const API_URL =
-  process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
-
 const nextConfig: NextConfig = {
   async rewrites() {
+    // Proxy reverso só em desenvolvimento local (localhost:5000)
+    // Em produção, NEXT_PUBLIC_API_URL aponta direto para Railway
+    if (process.env.NODE_ENV === "production") return [];
     return [
       {
         source: "/api/:path*",
-        destination: `${API_URL}/api/:path*`,
+        destination: "http://localhost:5000/api/:path*",
       },
     ];
   },
