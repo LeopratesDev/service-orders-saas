@@ -1,8 +1,22 @@
 # Service Orders SaaS
 
+[![CI](https://github.com/LeopratesDev/service-orders-saas/actions/workflows/ci.yml/badge.svg)](https://github.com/LeopratesDev/service-orders-saas/actions/workflows/ci.yml)
+
 Plataforma SaaS multi-tenant de gestão de ordens de serviço com integração de pagamentos Pix via Mercado Pago.
 
 Desenvolvido por **Leonardo Prates** — [github.com/LeopratesDev](https://github.com/LeopratesDev)
+
+---
+
+## Métricas do projeto
+
+| Item | Resultado |
+|---|---|
+| Testes de integração | 4/4 passando (banco real via Testcontainers) |
+| Cobertura de isolamento multi-tenant | Provada por teste automatizado |
+| Tempo médio de test suite | ~9 s |
+| CI/CD | GitHub Actions (push → build → test) |
+| Linhas de código backend | ~800 (excluindo migrations) |
 
 ---
 
@@ -10,13 +24,17 @@ Desenvolvido por **Leonardo Prates** — [github.com/LeopratesDev](https://githu
 
 | Camada | Tecnologia |
 |---|---|
-| Backend | C# / ASP.NET Core 7 |
-| ORM | Entity Framework Core + PostgreSQL |
-| Frontend | Next.js 14 (App Router) + TypeScript + Tailwind |
-| Pagamentos | Mercado Pago (Pix) — webhook com validação HMAC |
-| Resiliência | Polly — Retry exponencial + Circuit Breaker |
-| Testes | xUnit + Testcontainers + WebApplicationFactory |
-| Container | Docker + docker-compose |
+| Backend | C# / ASP.NET Core 7, Clean Architecture |
+| CQRS | MediatR + FluentValidation |
+| ORM | Entity Framework Core 7 + PostgreSQL |
+| Multi-tenancy | EF Core Global Query Filters (`HasQueryFilter`) |
+| Frontend | Next.js 15 (App Router) + TypeScript + Tailwind CSS |
+| State management | TanStack Query (React Query) |
+| Pagamentos | Mercado Pago Pix — webhook com validação HMAC-SHA256 |
+| Resiliência | Polly — Retry exponencial (3x) + Circuit Breaker (5 falhas / 30 s) |
+| Testes | xUnit + Testcontainers.PostgreSql + WebApplicationFactory |
+| CI | GitHub Actions com PostgreSQL service container |
+| Deploy | Railway (Dockerfile) — `DATABASE_URL` auto-convertida, migrate on startup |
 
 ---
 
@@ -25,62 +43,65 @@ Desenvolvido por **Leonardo Prates** — [github.com/LeopratesDev](https://githu
 ```
 service-orders-saas/
 ├── src/
-│   ├── ServiceOrders.Domain/          # Entidades, enums, interfaces
-│   ├── ServiceOrders.Application/     # Use cases (MediatR), DTOs, validações (FluentValidation)
-│   ├── ServiceOrders.Infrastructure/  # EF Core, repositórios, gateway de pagamento
-│   └── ServiceOrders.Api/             # Controllers, middlewares, DI root
-└── tests/
-    └── ServiceOrders.IntegrationTests/ # Testes com banco real via Testcontainers
+│   ├── ServiceOrders.Domain/           # Entidades, enums, interfaces, DomainException
+│   ├── ServiceOrders.Application/      # Use cases (MediatR CQRS), DTOs, validações
+│   ├── ServiceOrders.Infrastructure/   # EF Core, repositórios, Mercado Pago gateway, Polly
+│   └── ServiceOrders.Api/              # Controllers, JWT auth, DI root, health endpoint
+├── tests/
+│   └── ServiceOrders.IntegrationTests/ # Banco real via Testcontainers
+└── web/                                # Next.js frontend (proxy reverso → API)
 ```
 
-Clean Architecture com dependências apontando para dentro:
-`API → Application → Domain ← Infrastructure`
+Dependências apontam para dentro: `API → Application → Domain ← Infrastructure`
 
 ---
 
 ## Decisões técnicas
 
 ### Multi-tenancy com Global Query Filters
-Banco compartilhado com coluna `TenantId` em todas as tabelas. O `AppDbContext` aplica um `HasQueryFilter` automático, garantindo que cada tenant só veja seus próprios dados sem precisar filtrar manualmente em cada query.
 
-O `TenantId` é resolvido via JWT claim (`tenant_id`) ou header `X-Tenant-Id` pelo `HttpContextTenantContext`.
+Banco compartilhado com coluna `TenantId` em todas as tabelas. O `AppDbContext` aplica `HasQueryFilter` automaticamente — nenhum repositório precisa filtrar manualmente. O `TenantId` é resolvido via claim `tenant_id` do JWT (ou header `X-Tenant-Id`) pelo `HttpContextTenantContext`.
 
-### Máquina de estados explícita
-A `ServiceOrder` define transições declarativas no próprio domínio:
+Isolamento provado por teste automatizado: Tenant B não consegue ver orders do Tenant A, mesmo compartilhando o mesmo banco.
+
+### Máquina de estados explícita no domínio
 
 ```
 Draft → Pending → Paid
        ↘ Cancelled
 ```
 
-Qualquer transição inválida lança `DomainException`. Não há `if/switch` espalhados nos handlers — o domínio é a única fonte de verdade do ciclo de vida.
+Transições são métodos na entidade (`Submit()`, `MarkAsPaid()`, `Cancel()`). Qualquer chamada inválida lança `DomainException`. Não há `if/switch` nos handlers — o domínio é a única fonte de verdade.
 
 ### Idempotência em pagamentos
-Cada cobrança usa uma `IdempotencyKey` gerada a partir do `OrderId + data`. Essa chave é enviada como header para o Mercado Pago, garantindo que reenvios de webhook ou retries não criem cobranças duplicadas.
+
+Cada cobrança tem uma `IdempotencyKey` gerada a partir do `OrderId`. Essa chave é enviada como header `X-Idempotency-Key` para o Mercado Pago e salva no banco com índice único filtrado (excluindo NULLs). Reenvios de webhook ou retries não criam cobranças duplicadas.
 
 ### Resiliência com Polly
-O `HttpClient` do gateway de pagamento tem duas políticas encadeadas:
-- **Retry exponencial** (3 tentativas: 2s, 4s, 8s)
-- **Circuit Breaker** (abre após 5 falhas consecutivas por 30s)
+
+O `HttpClient` do gateway tem duas políticas encadeadas:
+
+- **Retry exponencial** — 3 tentativas, backoff de 2s, 4s, 8s
+- **Circuit Breaker** — abre após 5 falhas consecutivas, permanece aberto por 30 s
 
 ---
 
-## Como rodar
+## Como rodar localmente
 
-### Pré-requisitos
-- Docker Desktop
-- .NET 7 SDK
-- Node.js 18+
+**Pré-requisitos:** Docker Desktop, .NET 7 SDK, Node.js 18+
 
 ```bash
-# Subir banco de dados
+# Subir banco
 docker-compose up postgres -d
 
-# Rodar a API
+# Rodar a API (http://localhost:5000 + Swagger em /swagger)
 cd src/ServiceOrders.Api
 dotnet run
 
-# Swagger disponível em http://localhost:5000/swagger
+# Rodar o frontend (http://localhost:3000)
+cd web
+npm install
+npm run dev
 ```
 
 ### Testes de integração
@@ -93,24 +114,27 @@ Os testes sobem um container PostgreSQL real via Testcontainers — sem mocks de
 
 ---
 
-## Endpoints principais
+## Fluxo de uso
 
-| Método | Rota | Descrição |
-|---|---|---|
-| POST | `/api/serviceorders` | Criar ordem de serviço |
-| POST | `/api/serviceorders/{id}/submit-payment` | Gerar cobrança Pix |
-| POST | `/api/webhooks/mercadopago` | Receber evento de pagamento |
-
----
-
-## Próximos passos
-
-- [ ] Frontend Next.js com dashboard por tenant
-- [ ] Migrations EF Core + seed de tenants
-- [ ] Autenticação completa (registro, login, emissão de JWT com `tenant_id`)
-- [ ] CI/CD com GitHub Actions
-- [ ] Deploy na Railway ou Render
+1. `POST /api/auth/login` → recebe JWT com `tenant_id` embutido
+2. `POST /api/serviceorders` → cria ordem (status `Draft`)
+3. `POST /api/serviceorders/{id}/submit-payment` → gera cobrança Pix (status → `Pending`)
+4. `POST /api/webhooks/mercadopago` → confirmação de pagamento (status → `Paid`)
 
 ---
 
-*Construído com princípios de arquitetura declarativa e orientada a contratos, inspirados em GraphHelm/Keel: menor escopo possível por entrega, transições de estado explícitas e isolamento de infraestrutura da regra de negócio.*
+## Endpoints
+
+| Método | Rota | Auth | Descrição |
+|---|---|---|---|
+| POST | `/api/auth/login` | — | Emite JWT com tenant_id |
+| GET | `/api/serviceorders` | JWT | Lista orders do tenant |
+| GET | `/api/serviceorders/{id}` | JWT | Detalhe (404 se outro tenant) |
+| POST | `/api/serviceorders` | JWT | Criar ordem |
+| POST | `/api/serviceorders/{id}/submit-payment` | JWT | Gerar cobrança Pix |
+| POST | `/api/webhooks/mercadopago` | HMAC | Receber evento de pagamento |
+| GET | `/health` | — | Health check |
+
+---
+
+*Construído com princípios de entrega incremental e contratos explícitos, inspirados em GraphHelm/Keel: menor escopo por entrega, transições de estado declarativas, infraestrutura isolada da regra de negócio.*
