@@ -1,8 +1,11 @@
 # Service Orders SaaS
 
 [![CI](https://github.com/LeopratesDev/service-orders-saas/actions/workflows/ci.yml/badge.svg)](https://github.com/LeopratesDev/service-orders-saas/actions/workflows/ci.yml)
+[![Railway](https://img.shields.io/badge/API-Railway-blueviolet)](https://service-orders-api-production.up.railway.app/health)
 
 Plataforma SaaS multi-tenant de gestão de ordens de serviço com integração de pagamentos Pix via Mercado Pago.
+
+> **API em produção:** https://service-orders-api-production.up.railway.app
 
 Desenvolvido por **Leonardo Prates** — [github.com/LeopratesDev](https://github.com/LeopratesDev)
 
