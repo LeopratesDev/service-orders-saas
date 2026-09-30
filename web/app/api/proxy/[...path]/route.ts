@@ -4,7 +4,8 @@ const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:5000";
 
 async function handler(req: NextRequest, { params }: { params: Promise<{ path: string[] }> }) {
   const { path } = await params;
-  const url = `${API_BASE}/api/${path.join("/")}`;
+  // path já vem com "api/auth/login", então não adicionar /api/ extra
+  const url = `${API_BASE}/${path.join("/")}`;
 
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
