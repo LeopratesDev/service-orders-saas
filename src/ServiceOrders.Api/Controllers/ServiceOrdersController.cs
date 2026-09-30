@@ -1,7 +1,9 @@
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using ServiceOrders.Application.ServiceOrders.Commands;
+using ServiceOrders.Domain.Interfaces;
 
 namespace ServiceOrders.Api.Controllers;
 
@@ -11,8 +13,13 @@ namespace ServiceOrders.Api.Controllers;
 public class ServiceOrdersController : ControllerBase
 {
     private readonly IMediator _mediator;
+    private readonly IServiceOrderRepository _repository;
 
-    public ServiceOrdersController(IMediator mediator) => _mediator = mediator;
+    public ServiceOrdersController(IMediator mediator, IServiceOrderRepository repository)
+    {
+        _mediator = mediator;
+        _repository = repository;
+    }
 
     [HttpPost]
     public async Task<IActionResult> Create([FromBody] CreateServiceOrderCommand command, CancellationToken ct)
@@ -29,5 +36,10 @@ public class ServiceOrdersController : ControllerBase
     }
 
     [HttpGet("{id:guid}")]
-    public IActionResult GetById(Guid id) => Ok(); // placeholder — add query handler
+    public async Task<IActionResult> GetById(Guid id, CancellationToken ct)
+    {
+        var order = await _repository.GetByIdAsync(id, ct);
+        if (order is null) return NotFound();
+        return Ok(new { order.Id, order.Title, order.Status, order.Amount, order.CreatedAt });
+    }
 }

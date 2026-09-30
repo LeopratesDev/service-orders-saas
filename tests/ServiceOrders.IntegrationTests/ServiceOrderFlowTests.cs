@@ -1,8 +1,11 @@
+using System.Net;
+using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using ServiceOrders.Infrastructure.Persistence;
+using ServiceOrders.IntegrationTests.Helpers;
 using Testcontainers.PostgreSql;
 using Xunit;
 
@@ -26,7 +29,6 @@ public class ServiceOrderFlowTests : IAsyncLifetime
         {
             host.ConfigureServices(services =>
             {
-                // Replace DbContext with test Postgres
                 var descriptor = services.SingleOrDefault(d =>
                     d.ServiceType == typeof(DbContextOptions<AppDbContext>));
                 if (descriptor is not null) services.Remove(descriptor);
@@ -36,7 +38,6 @@ public class ServiceOrderFlowTests : IAsyncLifetime
             });
         });
 
-        // Apply migrations
         using var scope = _factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
         await db.Database.EnsureCreatedAsync();
@@ -48,26 +49,71 @@ public class ServiceOrderFlowTests : IAsyncLifetime
         await _postgres.StopAsync();
     }
 
-    [Fact(Skip = "Requires JWT token — add auth helper before running")]
-    public async Task CreateOrder_ReturnsCreated()
+    [Fact]
+    public async Task CreateOrder_AuthorizedTenant_ReturnsCreated()
+    {
+        var tenantId = Guid.NewGuid();
+        var client = CreateClientFor(tenantId);
+
+        var response = await client.PostAsJsonAsync("/api/serviceorders", new
+        {
+            title = "Fix AC unit",
+            description = "Replace compressor in unit 3B",
+            amount = 1500.00,
+        });
+
+        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+        var body = await response.Content.ReadFromJsonAsync<IdResponse>();
+        Assert.NotEqual(Guid.Empty, body!.Id);
+    }
+
+    [Fact]
+    public async Task CreateOrder_NoToken_ReturnsUnauthorized()
     {
         var client = _factory.CreateClient();
 
         var response = await client.PostAsJsonAsync("/api/serviceorders", new
         {
-            title = "Fix AC unit",
-            description = "Replace compressor",
-            amount = 1500.00,
+            title = "Test",
+            description = "Test desc",
+            amount = 100,
         });
 
-        Assert.Equal(System.Net.HttpStatusCode.Created, response.StatusCode);
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
     }
 
-    [Fact(Skip = "Requires JWT token — add auth helper before running")]
-    public async Task TenantIsolation_OrdersNotVisibleAcrossTenants()
+    [Fact]
+    public async Task TenantIsolation_TenantB_CannotSeeOrderFromTenantA()
     {
-        // Tenant A creates order → Tenant B cannot see it
-        // Add JWT generation helper per tenant and assert 404 from tenant B's client
-        await Task.CompletedTask;
+        var tenantA = Guid.NewGuid();
+        var tenantB = Guid.NewGuid();
+
+        // Tenant A creates an order
+        var clientA = CreateClientFor(tenantA);
+        var createResponse = await clientA.PostAsJsonAsync("/api/serviceorders", new
+        {
+            title = "Tenant A order",
+            description = "Private order for tenant A",
+            amount = 250.00,
+        });
+        Assert.Equal(HttpStatusCode.Created, createResponse.StatusCode);
+        var created = await createResponse.Content.ReadFromJsonAsync<IdResponse>();
+
+        // Tenant B tries to access Tenant A's order
+        var clientB = CreateClientFor(tenantB);
+        var getResponse = await clientB.GetAsync($"/api/serviceorders/{created!.Id}");
+
+        // Should not find it (Global Query Filter returns null → 404)
+        Assert.Equal(HttpStatusCode.NotFound, getResponse.StatusCode);
     }
+
+    private HttpClient CreateClientFor(Guid tenantId)
+    {
+        var client = _factory.CreateClient();
+        var token = JwtHelper.GenerateToken(tenantId);
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        return client;
+    }
+
+    private record IdResponse(Guid Id);
 }
