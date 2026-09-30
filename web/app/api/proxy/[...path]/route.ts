@@ -1,9 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 
-const API_BASE =
+// .replace strips BOM that PowerShell can inject when piping env vars
+const API_BASE = (
   process.env.NEXT_PUBLIC_API_URL ??
   process.env.API_URL ??
-  "http://localhost:5000";
+  "http://localhost:5000"
+).replace(/^﻿/, "").trim();
 
 async function handler(
   req: NextRequest,
