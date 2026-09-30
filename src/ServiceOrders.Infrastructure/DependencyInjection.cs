@@ -17,8 +17,12 @@ public static class DependencyInjection
         // IHttpContextAccessor is registered by AddControllers in the API project
         services.AddScoped<ITenantContext, HttpContextTenantContext>();
 
-        services.AddDbContext<AppDbContext>(opts =>
-            opts.UseNpgsql(config.GetConnectionString("Postgres")));
+        // Railway provides DATABASE_URL as postgresql://user:pass@host:port/db
+        var connStr = Environment.GetEnvironmentVariable("DATABASE_URL") is { } url
+            ? ConvertDatabaseUrl(url)
+            : config.GetConnectionString("Postgres");
+
+        services.AddDbContext<AppDbContext>(opts => opts.UseNpgsql(connStr));
 
         services.AddScoped<IServiceOrderRepository, ServiceOrderRepository>();
 
@@ -32,5 +36,12 @@ public static class DependencyInjection
         .AddPolicyHandler(PollyPolicies.GetCircuitBreakerPolicy());
 
         return services;
+    }
+
+    private static string ConvertDatabaseUrl(string url)
+    {
+        var uri = new Uri(url);
+        var userInfo = uri.UserInfo.Split(':');
+        return $"Host={uri.Host};Port={uri.Port};Database={uri.AbsolutePath.TrimStart('/')};Username={userInfo[0]};Password={userInfo[1]};SSL Mode=Require;Trust Server Certificate=true";
     }
 }
