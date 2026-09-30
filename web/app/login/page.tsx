@@ -19,7 +19,10 @@ export default function LoginPage() {
     setLoading(true);
     setError("");
     try {
-      const { data } = await axios.post("/api/auth/login", form);
+      const proxyBase = typeof window !== "undefined" && window.location.hostname !== "localhost"
+        ? "/api/proxy"
+        : "";
+      const { data } = await axios.post(`${proxyBase}/api/auth/login`, form);
       localStorage.setItem("token", data.token);
       localStorage.setItem("tenantId", data.tenantId);
       router.push("/dashboard");

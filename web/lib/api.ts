@@ -1,8 +1,12 @@
 import axios from "axios";
 
-const api = axios.create({
-  baseURL: process.env.NEXT_PUBLIC_API_URL ?? "",
-});
+// Em produção (Vercel): usa proxy server-side /api/proxy/* → Railway (sem CORS)
+// Em dev local: usa rewrite do next.config.ts /api/* → localhost:5000
+const BASE = typeof window !== "undefined" && window.location.hostname !== "localhost"
+  ? "/api/proxy"
+  : "";
+
+const api = axios.create({ baseURL: BASE });
 
 api.interceptors.request.use((config) => {
   const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
