@@ -1,14 +1,175 @@
 "use client";
 
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { serviceOrdersApi, ServiceOrder } from "@/lib/api";
+import Link from "next/link";
 
-const STATUS_COLORS: Record<ServiceOrder["status"], string> = {
-  Draft: "bg-gray-100 text-gray-700",
-  Pending: "bg-yellow-100 text-yellow-700",
-  Paid: "bg-green-100 text-green-700",
-  Cancelled: "bg-red-100 text-red-700",
+const STATUS_LABEL: Record<ServiceOrder["status"], string> = {
+  Draft:     "Rascunho",
+  Pending:   "Aguardando Pix",
+  Paid:      "Pago",
+  Cancelled: "Cancelado",
 };
+
+const STATUS_CHIP: Record<ServiceOrder["status"], { bg: string; color: string }> = {
+  Draft:     { bg: "var(--s-draft-bg)",     color: "var(--s-draft)"     },
+  Pending:   { bg: "var(--s-pending-bg)",   color: "var(--s-pending)"   },
+  Paid:      { bg: "var(--s-paid-bg)",      color: "var(--s-paid)"      },
+  Cancelled: { bg: "var(--s-cancelled-bg)", color: "var(--s-cancelled)" },
+};
+
+const fmt = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
+
+const ghostBtnStyle: React.CSSProperties = {
+  padding: "6px 12px",
+  border: "1.5px solid var(--rule)",
+  borderRadius: 4,
+  background: "transparent",
+  color: "var(--lead)",
+  fontFamily: "var(--font-body)",
+  fontSize: 13,
+  fontWeight: 500,
+  cursor: "pointer",
+};
+
+const smBtnStyle: React.CSSProperties = {
+  display: "inline-block",
+  padding: "7px 14px",
+  background: "var(--accent)",
+  color: "#fff",
+  border: "none",
+  borderRadius: 4,
+  fontFamily: "var(--font-body)",
+  fontSize: 13,
+  fontWeight: 600,
+  textDecoration: "none",
+  whiteSpace: "nowrap",
+};
+
+function fmtShort(n: number) {
+  if (n === 0) return "R$ 0";
+  if (n >= 1000) return `R$ ${(n / 1000).toFixed(1).replace(".", ",")}k`;
+  return `R$ ${n.toLocaleString("pt-BR")}`;
+}
+
+function BrandIcon() {
+  return (
+    <div style={{
+      width: 24, height: 24,
+      background: "var(--accent)",
+      borderRadius: 3,
+      display: "grid",
+      gridTemplateColumns: "1fr 1fr",
+      gap: 2.5,
+      padding: 5.5,
+      flexShrink: 0,
+    }}>
+      {[0, 1, 2, 3].map((i) => (
+        <span key={i} style={{ background: "#fff", borderRadius: 1, opacity: i === 1 || i === 2 ? 0.5 : 1 }} />
+      ))}
+    </div>
+  );
+}
+
+function StatCell({ label, value, color }: { label: string; value: string; color?: string }) {
+  return (
+    <div style={{ background: "var(--surface)", padding: "14px 18px" }}>
+      <div style={{ fontSize: 10.5, fontWeight: 600, color: "var(--lead)", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 4 }}>
+        {label}
+      </div>
+      <div style={{ fontFamily: "var(--font-mono)", fontSize: 19, fontWeight: 500, color: color ?? "var(--ink)", fontVariantNumeric: "tabular-nums" }}>
+        {value}
+      </div>
+    </div>
+  );
+}
+
+function PixButton({ orderId, amount, status }: { orderId: string; amount: number; status: ServiceOrder["status"] }) {
+  const [isPending, setIsPending] = useState(false);
+
+  async function handleClick() {
+    setIsPending(true);
+    try {
+      const result = await serviceOrdersApi.submitPayment(orderId);
+      alert(`Código Pix gerado!\n\nValor: ${fmt.format(amount)}\n\nCódigo:\n${result.pixQrCode}`);
+    } catch {
+      alert("Erro ao gerar cobrança Pix. Tente novamente.");
+    } finally {
+      setIsPending(false);
+    }
+  }
+
+  return (
+    <button
+      onClick={handleClick}
+      disabled={isPending}
+      style={{
+        padding: "5px 10px",
+        border: "1.5px solid var(--rule)",
+        borderRadius: 4,
+        background: "transparent",
+        color: "var(--accent)",
+        fontFamily: "var(--font-body)",
+        fontSize: 12,
+        fontWeight: 600,
+        cursor: isPending ? "not-allowed" : "pointer",
+        whiteSpace: "nowrap",
+        opacity: isPending ? 0.65 : 1,
+      }}
+    >
+      {status === "Paid" ? "Ver Pix" : "Gerar Pix"}
+    </button>
+  );
+}
+
+function OrderRow({ order }: { order: ServiceOrder }) {
+  const chip = STATUS_CHIP[order.status];
+  const [hover, setHover] = useState(false);
+
+  return (
+    <tr
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => setHover(false)}
+      style={{ background: hover ? "color-mix(in srgb, var(--accent) 3.5%, var(--surface))" : "var(--surface)" }}
+    >
+      <td style={{ padding: "13px 16px", borderBottom: "1px solid var(--rule)", verticalAlign: "middle" }}>
+        <div style={{ fontWeight: 500, fontSize: 14 }}>{order.title}</div>
+        <span style={{ fontFamily: "var(--font-mono)", fontSize: 10.5, color: "var(--lead)", display: "block", marginTop: 2 }}>
+          #{order.id.slice(0, 8)}
+        </span>
+      </td>
+      <td style={{ padding: "13px 16px", borderBottom: "1px solid var(--rule)", verticalAlign: "middle", fontFamily: "var(--font-mono)", fontSize: 12, color: "var(--lead)", whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" }}>
+        {new Date(order.createdAt).toLocaleDateString("pt-BR")}
+      </td>
+      <td style={{ padding: "13px 16px", borderBottom: "1px solid var(--rule)", verticalAlign: "middle" }}>
+        <span style={{
+          display: "inline-flex",
+          alignItems: "center",
+          gap: 5,
+          padding: "3px 8px 3px 6px",
+          borderRadius: 99,
+          background: chip.bg,
+          color: chip.color,
+          fontSize: 11.5,
+          fontWeight: 600,
+          whiteSpace: "nowrap",
+        }}>
+          <span style={{ width: 6, height: 6, borderRadius: "50%", background: chip.color, flexShrink: 0 }} />
+          {STATUS_LABEL[order.status]}
+        </span>
+      </td>
+      <td style={{ padding: "13px 16px", borderBottom: "1px solid var(--rule)", verticalAlign: "middle", textAlign: "right", fontFamily: "var(--font-mono)", fontVariantNumeric: "tabular-nums", fontWeight: 500, fontSize: 14, whiteSpace: "nowrap" }}>
+        {fmt.format(order.amount)}
+      </td>
+      <td style={{ padding: "13px 16px", borderBottom: "1px solid var(--rule)", verticalAlign: "middle", textAlign: "right" }}>
+        {(order.status === "Pending" || order.status === "Paid") && (
+          <PixButton orderId={order.id} amount={order.amount} status={order.status} />
+        )}
+      </td>
+    </tr>
+  );
+}
 
 export default function DashboardPage() {
   const { data: orders, isLoading, isError } = useQuery({
@@ -16,47 +177,143 @@ export default function DashboardPage() {
     queryFn: serviceOrdersApi.list,
   });
 
+  const tenantId =
+    typeof window !== "undefined" ? (localStorage.getItem("tenantId") ?? "").slice(0, 8) : "";
+
+  const totals = orders
+    ? {
+        total:   orders.length,
+        paid:    orders.filter((o) => o.status === "Paid").reduce((s, o) => s + o.amount, 0),
+        pending: orders.filter((o) => o.status === "Pending").reduce((s, o) => s + o.amount, 0),
+        draft:   orders.filter((o) => o.status === "Draft").reduce((s, o) => s + o.amount, 0),
+      }
+    : null;
+
+  function handleLogout() {
+    localStorage.removeItem("token");
+    localStorage.removeItem("tenantId");
+    window.location.href = "/login";
+  }
+
   return (
-    <main className="max-w-5xl mx-auto py-10 px-4">
-      <div className="flex items-center justify-between mb-8">
-        <h1 className="text-2xl font-semibold text-gray-900">Ordens de Serviço</h1>
-        <a
-          href="/dashboard/new"
-          className="bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-indigo-700 transition"
-        >
-          + Nova Ordem
-        </a>
-      </div>
-
-      {isLoading && <p className="text-gray-500">Carregando...</p>}
-      {isError && <p className="text-red-500">Erro ao carregar as ordens.</p>}
-
-      {orders && orders.length === 0 && (
-        <div className="text-center py-20 text-gray-400">
-          <p className="text-lg">Nenhuma ordem criada ainda.</p>
-        </div>
-      )}
-
-      <div className="space-y-3">
-        {orders?.map((order) => (
-          <div key={order.id} className="bg-white border border-gray-200 rounded-xl p-5 flex items-center justify-between shadow-sm hover:shadow-md transition">
-            <div>
-              <p className="font-medium text-gray-900">{order.title}</p>
-              <p className="text-sm text-gray-500 mt-1">
-                {new Date(order.createdAt).toLocaleDateString("pt-BR")}
-              </p>
-            </div>
-            <div className="flex items-center gap-4">
-              <span className={`text-xs px-3 py-1 rounded-full font-medium ${STATUS_COLORS[order.status]}`}>
-                {order.status}
-              </span>
-              <span className="font-semibold text-gray-800">
-                {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(order.amount)}
-              </span>
-            </div>
+    <>
+      <nav style={{
+        position: "sticky",
+        top: 0,
+        background: "var(--surface)",
+        borderBottom: "1px solid var(--rule)",
+        zIndex: 10,
+        padding: "0 16px",
+      }}>
+        <div style={{
+          maxWidth: 800,
+          marginInline: "auto",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          height: 52,
+        }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <BrandIcon />
+            <span style={{
+              fontFamily: "var(--font-brand, 'Syne', sans-serif)",
+              fontSize: 15,
+              fontWeight: 700,
+              letterSpacing: "-0.01em",
+              color: "var(--ink)",
+            }}>
+              Ordens de Serviço
+            </span>
           </div>
-        ))}
-      </div>
-    </main>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <button onClick={handleLogout} style={ghostBtnStyle}>Sair</button>
+            <Link href="/dashboard/new" style={smBtnStyle}>+ Nova ordem</Link>
+          </div>
+        </div>
+      </nav>
+
+      <main style={{ maxWidth: 800, marginInline: "auto", padding: "32px 16px" }}>
+        <div style={{ marginBottom: 24 }}>
+          <h2 style={{
+            fontFamily: "var(--font-brand)",
+            fontSize: 26,
+            fontWeight: 700,
+            letterSpacing: "-0.03em",
+            margin: "0 0 2px",
+          }}>
+            Suas ordens
+          </h2>
+          {tenantId && (
+            <p style={{ fontSize: 12.5, color: "var(--lead)", margin: 0, fontFamily: "var(--font-mono)" }}>
+              Tenant · {tenantId}
+            </p>
+          )}
+        </div>
+
+        {totals && (
+          <div style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fit, minmax(130px, 1fr))",
+            gap: 1,
+            background: "var(--rule)",
+            border: "1px solid var(--rule)",
+            borderRadius: 8,
+            overflow: "hidden",
+            marginBottom: 24,
+          }}>
+            <StatCell label="Total" value={String(totals.total)} />
+            <StatCell label="Recebido" value={fmtShort(totals.paid)} color="var(--s-paid)" />
+            <StatCell label="Pendente" value={fmtShort(totals.pending)} color="var(--s-pending)" />
+            <StatCell label="Rascunho" value={fmtShort(totals.draft)} />
+          </div>
+        )}
+
+        {isLoading && <p style={{ color: "var(--lead)", fontSize: 14 }}>Carregando ordens...</p>}
+        {isError && <p style={{ color: "#DC2626", fontSize: 14 }}>Erro ao carregar as ordens. Tente novamente.</p>}
+
+        {orders && orders.length === 0 && (
+          <div style={{ border: "1px solid var(--rule)", borderRadius: 8, padding: "56px 24px", textAlign: "center" }}>
+            <p style={{ fontFamily: "var(--font-brand)", fontSize: 17, fontWeight: 600, margin: "0 0 6px" }}>
+              Nenhuma ordem criada ainda
+            </p>
+            <p style={{ fontSize: 13.5, color: "var(--lead)", margin: "0 0 20px" }}>
+              Crie sua primeira ordem de serviço para começar a cobrar via Pix.
+            </p>
+            <Link href="/dashboard/new" style={smBtnStyle}>+ Criar primeira ordem</Link>
+          </div>
+        )}
+
+        {orders && orders.length > 0 && (
+          <div style={{ border: "1px solid var(--rule)", borderRadius: 8, overflow: "hidden", overflowX: "auto" }}>
+            <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 520 }}>
+              <thead>
+                <tr style={{ background: "var(--bg)" }}>
+                  {(["Ordem de serviço", "Data", "Status", "Valor", ""] as const).map((h, i) => (
+                    <th key={i} style={{
+                      padding: "9px 16px",
+                      textAlign: i >= 3 ? "right" : "left",
+                      fontSize: 10.5,
+                      fontWeight: 600,
+                      color: "var(--lead)",
+                      textTransform: "uppercase",
+                      letterSpacing: "0.07em",
+                      borderBottom: "1px solid var(--rule)",
+                      whiteSpace: "nowrap",
+                    }}>
+                      {h}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {orders.map((order) => (
+                  <OrderRow key={order.id} order={order} />
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </main>
+    </>
   );
 }

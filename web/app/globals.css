@@ -1,26 +1,50 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+  --bg:      #F3F3EE;
+  --surface: #FFFFFF;
+  --ink:     #111111;
+  --lead:    #6A6962;
+  --rule:    #E1E0D8;
+  --accent:  #1A43D8;
+  --accent-dim: #EAEEFc;
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --s-draft:        #92400E;
+  --s-draft-bg:     #FEF3C7;
+  --s-pending:      #1A43D8;
+  --s-pending-bg:   #EAEEFc;
+  --s-paid:         #166534;
+  --s-paid-bg:      #DCFCE7;
+  --s-cancelled:    #6A6962;
+  --s-cancelled-bg: #F0EFEA;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    --bg:      #131310;
+    --surface: #1C1C18;
+    --ink:     #EEEEE8;
+    --lead:    #888880;
+    --rule:    #2A2A24;
+    --accent:  #4A72FF;
+    --accent-dim: #131830;
+
+    --s-draft:        #FCD34D;
+    --s-draft-bg:     #201800;
+    --s-pending:      #4A72FF;
+    --s-pending-bg:   #0A1028;
+    --s-paid:         #4ADE80;
+    --s-paid-bg:      #041A0A;
+    --s-cancelled:    #888880;
+    --s-cancelled-bg: #1A1A16;
   }
 }
 
+*, *::before, *::after { box-sizing: border-box; }
+
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--bg);
+  color: var(--ink);
+  margin: 0;
+  -webkit-font-smoothing: antialiased;
 }
