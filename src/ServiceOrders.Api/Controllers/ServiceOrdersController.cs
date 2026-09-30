@@ -35,6 +35,13 @@ public class ServiceOrdersController : ControllerBase
         return Ok(result);
     }
 
+    [HttpGet]
+    public async Task<IActionResult> GetAll(CancellationToken ct)
+    {
+        var orders = await _repository.GetAllAsync(ct);
+        return Ok(orders.Select(o => new { o.Id, o.Title, o.Status, o.Amount, o.CreatedAt }));
+    }
+
     [HttpGet("{id:guid}")]
     public async Task<IActionResult> GetById(Guid id, CancellationToken ct)
     {
