@@ -83,6 +83,36 @@ public class ServiceOrderFlowTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task CreateOrder_WithoutDescription_Succeeds()
+    {
+        var client = CreateClientFor(Guid.NewGuid());
+
+        var response = await client.PostAsJsonAsync("/api/serviceorders", new
+        {
+            title = "No description order",
+            description = (string?)null,
+            amount = 200.00,
+        });
+
+        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task CreateOrder_DescriptionOverLimit_ReturnsBadRequest()
+    {
+        var client = CreateClientFor(Guid.NewGuid());
+
+        var response = await client.PostAsJsonAsync("/api/serviceorders", new
+        {
+            title = "Long description",
+            description = new string('x', 2001),
+            amount = 100.00,
+        });
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
     public async Task TenantIsolation_TenantB_CannotSeeOrderFromTenantA()
     {
         var tenantA = Guid.NewGuid();

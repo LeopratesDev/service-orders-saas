@@ -18,14 +18,14 @@ public class ServiceOrder
 
     private ServiceOrder() { }
 
-    public static ServiceOrder Create(Guid tenantId, string title, string description, decimal amount)
+    public static ServiceOrder Create(Guid tenantId, string title, string? description, decimal amount)
     {
         return new ServiceOrder
         {
             Id = Guid.NewGuid(),
             TenantId = tenantId,
             Title = title,
-            Description = description,
+            Description = description ?? string.Empty,
             Amount = amount,
             Status = ServiceOrderStatus.Draft,
             CreatedAt = DateTime.UtcNow,
