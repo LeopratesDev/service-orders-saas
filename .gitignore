@@ -1,0 +1,33 @@
+## .NET
+bin/
+obj/
+*.user
+*.suo
+*.vs/
+.vs/
+*.nupkg
+*.snupkg
+project.lock.json
+project.fragment.lock.json
+artifacts/
+
+## ASP.NET
+publish/
+launchSettings.json
+
+## Environment
+appsettings.Production.json
+.env
+.env.*
+
+## Docker
+*.override.yml
+
+## Next.js
+web/node_modules/
+web/.next/
+web/out/
+
+## Misc
+.DS_Store
+Thumbs.db
