@@ -5,7 +5,8 @@
 
 Plataforma SaaS multi-tenant de gestão de ordens de serviço com integração de pagamentos Pix via Mercado Pago.
 
-> **API em produção:** https://service-orders-api-production.up.railway.app
+> **Frontend:** https://service-orders-saas.vercel.app  
+> **API:** https://service-orders-api-production.up.railway.app/health
 
 Desenvolvido por **Leonardo Prates** — [github.com/LeopratesDev](https://github.com/LeopratesDev)
 
