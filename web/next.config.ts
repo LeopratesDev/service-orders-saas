@@ -1,9 +1,6 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  turbopack: {
-    root: __dirname,
-  },
   async rewrites() {
     // Proxy reverso só em desenvolvimento local (localhost:5000)
     // Em produção, NEXT_PUBLIC_API_URL aponta direto para Railway
