@@ -24,7 +24,8 @@ builder.Services.AddValidatorsFromAssemblyContaining<CreateServiceOrderValidator
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(opts =>
     {
-        var key = Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Secret"] ?? "dev-secret-key-replace-before-production");
+        var jwtSecret = builder.Configuration["Jwt:Secret"];
+        var key = Encoding.UTF8.GetBytes(string.IsNullOrEmpty(jwtSecret) ? "dev-secret-key-replace-before-production" : jwtSecret);
         opts.TokenValidationParameters = new TokenValidationParameters
         {
             ValidateIssuerSigningKey = true,
