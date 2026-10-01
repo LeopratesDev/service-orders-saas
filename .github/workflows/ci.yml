@@ -19,17 +19,11 @@ jobs:
         with:
           dotnet-version: "7.0.x"
 
-      - name: Restore
-        run: dotnet restore
-
-      - name: Build
-        run: dotnet build --no-restore -c Release
-
       - name: Run unit tests
-        run: dotnet test tests/ServiceOrders.UnitTests --no-build -c Release --logger "trx;LogFileName=unit-results.trx"
+        run: dotnet test tests/ServiceOrders.UnitTests -c Release --logger "trx;LogFileName=unit-results.trx" --verbosity normal
 
       - name: Run integration tests
-        run: dotnet test tests/ServiceOrders.IntegrationTests --no-build -c Release --logger "trx;LogFileName=results.trx"
+        run: dotnet test tests/ServiceOrders.IntegrationTests -c Release --logger "trx;LogFileName=results.trx" --verbosity normal
 
       - name: Upload test results
         if: always()
