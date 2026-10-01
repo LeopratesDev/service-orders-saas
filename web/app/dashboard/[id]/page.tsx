@@ -5,6 +5,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useParams, useRouter } from "next/navigation";
 import { serviceOrdersApi, ServiceOrderDetail } from "@/lib/api";
 import Link from "next/link";
+import { useToast } from "@/app/components/Toast";
 
 type Status = ServiceOrderDetail["status"];
 
@@ -84,6 +85,7 @@ export default function OrderDetailPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
   const queryClient = useQueryClient();
+  const { toast } = useToast();
   const [actionPending, setActionPending] = useState<"pix" | "cancel" | null>(null);
 
   const { data: order, isLoading, isError } = useQuery({
@@ -97,11 +99,11 @@ export default function OrderDetailPage() {
     setActionPending("pix");
     try {
       const result = await serviceOrdersApi.submitPayment(id);
-      alert(`Código Pix gerado!\n\nValor: ${fmt.format(order.amount)}\n\nCódigo:\n${result.pixQrCode}`);
+      toast(`Pix gerado! Valor: ${fmt.format(order.amount)}\n\nCopie o código:\n${result.pixQrCode}`, "success");
       queryClient.invalidateQueries({ queryKey: ["service-order", id] });
       queryClient.invalidateQueries({ queryKey: ["service-orders"] });
     } catch {
-      alert("Erro ao gerar cobrança Pix. Tente novamente.");
+      toast("Erro ao gerar cobrança Pix. Tente novamente.", "error");
     } finally {
       setActionPending(null);
     }
@@ -114,9 +116,10 @@ export default function OrderDetailPage() {
       await serviceOrdersApi.cancel(id);
       queryClient.invalidateQueries({ queryKey: ["service-order", id] });
       queryClient.invalidateQueries({ queryKey: ["service-orders"] });
+      toast("Ordem cancelada com sucesso.", "info");
       router.push("/dashboard");
     } catch {
-      alert("Erro ao cancelar. Tente novamente.");
+      toast("Erro ao cancelar. Tente novamente.", "error");
       setActionPending(null);
     }
   }

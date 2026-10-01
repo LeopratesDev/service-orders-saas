@@ -6,6 +6,7 @@ import { serviceOrdersApi, ServiceOrder, ListParams } from "@/lib/api";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import StatsChart from "./StatsChart";
+import { useToast } from "@/app/components/Toast";
 
 const STATUS_LABEL: Record<ServiceOrder["status"], string> = {
   Draft:     "Rascunho",
@@ -101,14 +102,15 @@ function StatCell({ label, value, color }: { label: string; value: string; color
 
 function PixButton({ orderId, amount, status }: { orderId: string; amount: number; status: ServiceOrder["status"] }) {
   const [isPending, setIsPending] = useState(false);
+  const { toast } = useToast();
 
   async function handleClick() {
     setIsPending(true);
     try {
       const result = await serviceOrdersApi.submitPayment(orderId);
-      alert(`Código Pix gerado!\n\nValor: ${fmt.format(amount)}\n\nCódigo:\n${result.pixQrCode}`);
+      toast(`Pix gerado! Valor: ${fmt.format(amount)}\n\nCopie o código:\n${result.pixQrCode}`, "success");
     } catch {
-      alert("Erro ao gerar cobrança Pix. Tente novamente.");
+      toast("Erro ao gerar cobrança Pix. Tente novamente.", "error");
     } finally {
       setIsPending(false);
     }
@@ -139,6 +141,7 @@ function PixButton({ orderId, amount, status }: { orderId: string; amount: numbe
 
 function CancelButton({ orderId, onCancelled }: { orderId: string; onCancelled: () => void }) {
   const [isPending, setIsPending] = useState(false);
+  const { toast } = useToast();
 
   async function handleClick() {
     if (!confirm("Cancelar esta ordem de serviço?")) return;
@@ -146,8 +149,9 @@ function CancelButton({ orderId, onCancelled }: { orderId: string; onCancelled: 
     try {
       await serviceOrdersApi.cancel(orderId);
       onCancelled();
+      toast("Ordem cancelada.", "info");
     } catch {
-      alert("Erro ao cancelar. Tente novamente.");
+      toast("Erro ao cancelar. Tente novamente.", "error");
     } finally {
       setIsPending(false);
     }
@@ -247,6 +251,7 @@ export default function DashboardPage() {
   const [filterTo, setFilterTo] = useState("");
   const [exporting, setExporting] = useState(false);
   const queryClient = useQueryClient();
+  const { toast } = useToast();
 
   const filters: ListParams = {
     page,
@@ -298,7 +303,7 @@ export default function DashboardPage() {
       a.click();
       URL.revokeObjectURL(url);
     } catch {
-      alert("Erro ao exportar. Tente novamente.");
+      toast("Erro ao exportar. Tente novamente.", "error");
     } finally {
       setExporting(false);
     }
