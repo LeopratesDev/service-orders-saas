@@ -21,10 +21,20 @@ async function handler(
     const auth = req.headers.get("authorization");
     if (auth) headers["Authorization"] = auth;
 
-    const body =
+    let body =
       req.method !== "GET" && req.method !== "HEAD"
         ? await req.text()
         : undefined;
+
+    // Ensure description is never null/empty for the create-order endpoint
+    // (backend validator still has NotEmpty until Railway deploys the fix)
+    if (req.method === "POST" && path.join("/") === "api/serviceorders" && body) {
+      try {
+        const parsed = JSON.parse(body);
+        if (!parsed.description?.trim()) parsed.description = "—";
+        body = JSON.stringify(parsed);
+      } catch {}
+    }
 
     const upstream = await fetch(url, { method: req.method, headers, body });
     const data = await upstream.text();
