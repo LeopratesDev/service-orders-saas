@@ -44,6 +44,13 @@ public class ServiceOrdersController : ControllerBase
         return Ok(order);
     }
 
+    [HttpGet("stats")]
+    public async Task<IActionResult> GetStats(CancellationToken ct)
+    {
+        var result = await _mediator.Send(new GetServiceOrderStatsQuery(), ct);
+        return Ok(result);
+    }
+
     [HttpDelete("{id:guid}")]
     public async Task<IActionResult> Cancel(Guid id, CancellationToken ct)
     {

@@ -27,6 +27,15 @@ public class ServiceOrderRepository : IServiceOrderRepository
         return (items, total);
     }
 
+    public async Task<IReadOnlyList<(string Status, int Count, decimal Total)>> GetStatsByStatusAsync(CancellationToken ct)
+    {
+        var rows = await _db.ServiceOrders
+            .GroupBy(o => o.Status)
+            .Select(g => new { Status = g.Key.ToString(), Count = g.Count(), Total = g.Sum(o => o.Amount) })
+            .ToListAsync(ct);
+        return rows.Select(r => (r.Status, r.Count, r.Total)).ToList();
+    }
+
     public Task AddAsync(ServiceOrder order, CancellationToken ct)
     {
         _db.ServiceOrders.Add(order);

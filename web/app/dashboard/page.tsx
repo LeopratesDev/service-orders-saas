@@ -5,6 +5,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { serviceOrdersApi, ServiceOrder, PagedResult } from "@/lib/api";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import StatsChart from "./StatsChart";
 
 const STATUS_LABEL: Record<ServiceOrder["status"], string> = {
   Draft:     "Rascunho",
@@ -327,6 +328,8 @@ export default function DashboardPage() {
             <StatCell label="Rascunho" value={fmtShort(totals.draft)} />
           </div>
         )}
+
+        <StatsChart />
 
         {isLoading && <p style={{ color: "var(--lead)", fontSize: 14 }}>Carregando ordens...</p>}
         {isError && <p style={{ color: "#DC2626", fontSize: 14 }}>Erro ao carregar as ordens. Tente novamente.</p>}

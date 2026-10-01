@@ -53,6 +53,16 @@ export interface PagedResult<T> {
   hasPrevious: boolean;
 }
 
+export interface ServiceOrderStatItem {
+  status: string;
+  count: number;
+  total: number;
+}
+
+export interface ServiceOrderStats {
+  byStatus: ServiceOrderStatItem[];
+}
+
 export const serviceOrdersApi = {
   list: (page = 1, pageSize = 20) =>
     api.get<PagedResult<ServiceOrder>>(`/api/serviceorders?page=${page}&pageSize=${pageSize}`).then((r) => r.data),
@@ -63,6 +73,8 @@ export const serviceOrdersApi = {
     api.post<{ pixQrCode: string; expiresAt: string }>(`/api/serviceorders/${id}/submit-payment`).then((r) => r.data),
   cancel: (id: string) =>
     api.delete(`/api/serviceorders/${id}`),
+  stats: () =>
+    api.get<ServiceOrderStats>("/api/serviceorders/stats").then((r) => r.data),
 };
 
 export default api;
