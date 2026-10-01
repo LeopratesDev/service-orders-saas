@@ -36,7 +36,7 @@ export interface ServiceOrder {
 export const serviceOrdersApi = {
   list: () => api.get<ServiceOrder[]>("/api/serviceorders").then((r) => r.data),
   get: (id: string) => api.get<ServiceOrder>(`/api/serviceorders/${id}`).then((r) => r.data),
-  create: (body: { title: string; description: string; amount: number }) =>
+  create: (body: { title: string; description?: string | null; amount: number }) =>
     api.post<{ id: string }>("/api/serviceorders", body).then((r) => r.data),
   submitPayment: (id: string) =>
     api.post<{ pixQrCode: string; expiresAt: string }>(`/api/serviceorders/${id}/submit-payment`).then((r) => r.data),

@@ -15,7 +15,7 @@ export default function NewOrderPage() {
     mutationFn: () =>
       serviceOrdersApi.create({
         title: form.title,
-        description: form.description,
+        description: form.description || null,
         amount: parseFloat(form.amount),
       }),
     onSuccess: () => {
