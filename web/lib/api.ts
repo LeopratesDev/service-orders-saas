@@ -25,6 +25,16 @@ api.interceptors.response.use(
   }
 );
 
+export interface ServiceOrderDetail {
+  id: string;
+  title: string;
+  description: string;
+  status: "Draft" | "Pending" | "Paid" | "Cancelled";
+  amount: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface ServiceOrder {
   id: string;
   title: string;
@@ -46,7 +56,7 @@ export interface PagedResult<T> {
 export const serviceOrdersApi = {
   list: (page = 1, pageSize = 20) =>
     api.get<PagedResult<ServiceOrder>>(`/api/serviceorders?page=${page}&pageSize=${pageSize}`).then((r) => r.data),
-  get: (id: string) => api.get<ServiceOrder>(`/api/serviceorders/${id}`).then((r) => r.data),
+  get: (id: string) => api.get<ServiceOrderDetail>(`/api/serviceorders/${id}`).then((r) => r.data),
   create: (body: { title: string; description?: string | null; amount: number }) =>
     api.post<{ id: string }>("/api/serviceorders", body).then((r) => r.data),
   submitPayment: (id: string) =>

@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { serviceOrdersApi, ServiceOrder, PagedResult } from "@/lib/api";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 
 const STATUS_LABEL: Record<ServiceOrder["status"], string> = {
   Draft:     "Rascunho",
@@ -165,12 +166,17 @@ function CancelButton({ orderId, onCancelled }: { orderId: string; onCancelled: 
 function OrderRow({ order, onCancelled }: { order: ServiceOrder; onCancelled: () => void }) {
   const chip = STATUS_CHIP[order.status];
   const [hover, setHover] = useState(false);
+  const router = useRouter();
 
   return (
     <tr
       onMouseEnter={() => setHover(true)}
       onMouseLeave={() => setHover(false)}
-      style={{ background: hover ? "color-mix(in srgb, var(--accent) 3.5%, var(--surface))" : "var(--surface)" }}
+      onClick={() => router.push(`/dashboard/${order.id}`)}
+      style={{
+        background: hover ? "color-mix(in srgb, var(--accent) 3.5%, var(--surface))" : "var(--surface)",
+        cursor: "pointer",
+      }}
     >
       <td style={{ padding: "13px 16px", borderBottom: "1px solid var(--rule)", verticalAlign: "middle" }}>
         <div style={{ fontWeight: 500, fontSize: 14 }}>{order.title}</div>
@@ -202,7 +208,10 @@ function OrderRow({ order, onCancelled }: { order: ServiceOrder; onCancelled: ()
         {fmt.format(order.amount)}
       </td>
       <td style={{ padding: "13px 16px", borderBottom: "1px solid var(--rule)", verticalAlign: "middle", textAlign: "right" }}>
-        <div style={{ display: "flex", gap: 6, justifyContent: "flex-end" }}>
+        <div
+          style={{ display: "flex", gap: 6, justifyContent: "flex-end" }}
+          onClick={(e) => e.stopPropagation()}
+        >
           {(order.status === "Pending" || order.status === "Paid") && (
             <PixButton orderId={order.id} amount={order.amount} status={order.status} />
           )}
