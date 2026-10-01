@@ -9,6 +9,14 @@ using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 
+builder.WebHost.UseSentry(o =>
+{
+    o.Dsn = builder.Configuration["Sentry:Dsn"] ?? string.Empty;
+    o.TracesSampleRate = 0.2;
+    o.MinimumEventLevel = Microsoft.Extensions.Logging.LogLevel.Error;
+    o.AttachStacktrace = true;
+});
+
 builder.Services.AddControllers()
     .AddJsonOptions(opts =>
         opts.JsonSerializerOptions.Converters.Add(new System.Text.Json.Serialization.JsonStringEnumConverter()));
@@ -66,6 +74,7 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseCors();
+app.UseSentryTracing();
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();

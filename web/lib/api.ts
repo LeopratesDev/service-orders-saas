@@ -33,8 +33,19 @@ export interface ServiceOrder {
   createdAt: string;
 }
 
+export interface PagedResult<T> {
+  data: T[];
+  total: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+  hasNext: boolean;
+  hasPrevious: boolean;
+}
+
 export const serviceOrdersApi = {
-  list: () => api.get<ServiceOrder[]>("/api/serviceorders").then((r) => r.data),
+  list: (page = 1, pageSize = 20) =>
+    api.get<PagedResult<ServiceOrder>>(`/api/serviceorders?page=${page}&pageSize=${pageSize}`).then((r) => r.data),
   get: (id: string) => api.get<ServiceOrder>(`/api/serviceorders/${id}`).then((r) => r.data),
   create: (body: { title: string; description?: string | null; amount: number }) =>
     api.post<{ id: string }>("/api/serviceorders", body).then((r) => r.data),

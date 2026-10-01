@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { serviceOrdersApi, ServiceOrder } from "@/lib/api";
+import { serviceOrdersApi, ServiceOrder, PagedResult } from "@/lib/api";
 import Link from "next/link";
 
 const STATUS_LABEL: Record<ServiceOrder["status"], string> = {
@@ -171,21 +171,27 @@ function OrderRow({ order }: { order: ServiceOrder }) {
   );
 }
 
+const PAGE_SIZE = 20;
+
 export default function DashboardPage() {
-  const { data: orders, isLoading, isError } = useQuery({
-    queryKey: ["service-orders"],
-    queryFn: serviceOrdersApi.list,
+  const [page, setPage] = useState(1);
+
+  const { data: paged, isLoading, isError } = useQuery({
+    queryKey: ["service-orders", page],
+    queryFn: () => serviceOrdersApi.list(page, PAGE_SIZE),
   });
+
+  const orders = paged?.data;
 
   const tenantId =
     typeof window !== "undefined" ? (localStorage.getItem("tenantId") ?? "").slice(0, 8) : "";
 
-  const totals = orders
+  const totals = paged
     ? {
-        total:   orders.length,
-        paid:    orders.filter((o) => o.status === "Paid").reduce((s, o) => s + o.amount, 0),
-        pending: orders.filter((o) => o.status === "Pending").reduce((s, o) => s + o.amount, 0),
-        draft:   orders.filter((o) => o.status === "Draft").reduce((s, o) => s + o.amount, 0),
+        total:   paged.total,
+        paid:    orders!.filter((o) => o.status === "Paid").reduce((s, o) => s + o.amount, 0),
+        pending: orders!.filter((o) => o.status === "Pending").reduce((s, o) => s + o.amount, 0),
+        draft:   orders!.filter((o) => o.status === "Draft").reduce((s, o) => s + o.amount, 0),
       }
     : null;
 
@@ -271,7 +277,7 @@ export default function DashboardPage() {
         {isLoading && <p style={{ color: "var(--lead)", fontSize: 14 }}>Carregando ordens...</p>}
         {isError && <p style={{ color: "#DC2626", fontSize: 14 }}>Erro ao carregar as ordens. Tente novamente.</p>}
 
-        {orders && orders.length === 0 && (
+        {orders && orders.length === 0 && page === 1 && (
           <div style={{ border: "1px solid var(--rule)", borderRadius: 8, padding: "56px 24px", textAlign: "center" }}>
             <p style={{ fontFamily: "var(--font-brand)", fontSize: 17, fontWeight: 600, margin: "0 0 6px" }}>
               Nenhuma ordem criada ainda
@@ -284,34 +290,60 @@ export default function DashboardPage() {
         )}
 
         {orders && orders.length > 0 && (
-          <div style={{ border: "1px solid var(--rule)", borderRadius: 8, overflow: "hidden", overflowX: "auto" }}>
-            <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 520 }}>
-              <thead>
-                <tr style={{ background: "var(--bg)" }}>
-                  {(["Ordem de serviço", "Data", "Status", "Valor", ""] as const).map((h, i) => (
-                    <th key={i} style={{
-                      padding: "9px 16px",
-                      textAlign: i >= 3 ? "right" : "left",
-                      fontSize: 10.5,
-                      fontWeight: 600,
-                      color: "var(--lead)",
-                      textTransform: "uppercase",
-                      letterSpacing: "0.07em",
-                      borderBottom: "1px solid var(--rule)",
-                      whiteSpace: "nowrap",
-                    }}>
-                      {h}
-                    </th>
+          <>
+            <div style={{ border: "1px solid var(--rule)", borderRadius: 8, overflow: "hidden", overflowX: "auto" }}>
+              <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 520 }}>
+                <thead>
+                  <tr style={{ background: "var(--bg)" }}>
+                    {(["Ordem de serviço", "Data", "Status", "Valor", ""] as const).map((h, i) => (
+                      <th key={i} style={{
+                        padding: "9px 16px",
+                        textAlign: i >= 3 ? "right" : "left",
+                        fontSize: 10.5,
+                        fontWeight: 600,
+                        color: "var(--lead)",
+                        textTransform: "uppercase",
+                        letterSpacing: "0.07em",
+                        borderBottom: "1px solid var(--rule)",
+                        whiteSpace: "nowrap",
+                      }}>
+                        {h}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {orders.map((order) => (
+                    <OrderRow key={order.id} order={order} />
                   ))}
-                </tr>
-              </thead>
-              <tbody>
-                {orders.map((order) => (
-                  <OrderRow key={order.id} order={order} />
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </tbody>
+              </table>
+            </div>
+
+            {paged && paged.totalPages > 1 && (
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 16 }}>
+                <span style={{ fontSize: 12.5, color: "var(--lead)" }}>
+                  Página {paged.page} de {paged.totalPages} · {paged.total} ordens
+                </span>
+                <div style={{ display: "flex", gap: 8 }}>
+                  <button
+                    onClick={() => setPage((p) => p - 1)}
+                    disabled={!paged.hasPrevious}
+                    style={{ ...ghostBtnStyle, opacity: paged.hasPrevious ? 1 : 0.4, cursor: paged.hasPrevious ? "pointer" : "default" }}
+                  >
+                    ← Anterior
+                  </button>
+                  <button
+                    onClick={() => setPage((p) => p + 1)}
+                    disabled={!paged.hasNext}
+                    style={{ ...ghostBtnStyle, opacity: paged.hasNext ? 1 : 0.4, cursor: paged.hasNext ? "pointer" : "default" }}
+                  >
+                    Próxima →
+                  </button>
+                </div>
+              </div>
+            )}
+          </>
         )}
       </main>
     </>
