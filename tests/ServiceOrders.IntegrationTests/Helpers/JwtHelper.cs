@@ -7,7 +7,7 @@ namespace ServiceOrders.IntegrationTests.Helpers;
 
 public static class JwtHelper
 {
-    private const string Secret = "dev-secret-key-replace-before-production";
+    public const string Secret = "integration-test-secret-key-32chars!!";
 
     public static string GenerateToken(Guid tenantId, string email = "user@test.com")
     {

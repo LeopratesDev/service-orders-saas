@@ -3,6 +3,7 @@ using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using ServiceOrders.Infrastructure.Persistence;
 using ServiceOrders.IntegrationTests.Helpers;
@@ -27,6 +28,12 @@ public class ServiceOrderFlowTests : IAsyncLifetime
 
         _factory = new WebApplicationFactory<Program>().WithWebHostBuilder(host =>
         {
+            host.ConfigureAppConfiguration((_, cfg) =>
+                cfg.AddInMemoryCollection(new Dictionary<string, string?>
+                {
+                    ["Jwt:Secret"] = JwtHelper.Secret,
+                }));
+
             host.ConfigureServices(services =>
             {
                 var descriptor = services.SingleOrDefault(d =>

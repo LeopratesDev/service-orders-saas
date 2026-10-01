@@ -31,8 +31,8 @@ public class AuthController : ControllerBase
 
     private string GenerateToken(string email, Guid tenantId)
     {
-        var secret = _config["Jwt:Secret"];
-        if (string.IsNullOrEmpty(secret)) secret = "dev-secret-key-replace-before-production";
+        var secret = _config["Jwt:Secret"]
+            ?? throw new InvalidOperationException("Jwt:Secret is not configured.");
         var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secret));
         var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
 

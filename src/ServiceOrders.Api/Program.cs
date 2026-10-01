@@ -24,8 +24,11 @@ builder.Services.AddValidatorsFromAssemblyContaining<CreateServiceOrderValidator
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(opts =>
     {
-        var jwtSecret = builder.Configuration["Jwt:Secret"];
-        var key = Encoding.UTF8.GetBytes(string.IsNullOrEmpty(jwtSecret) ? "dev-secret-key-replace-before-production" : jwtSecret);
+        var jwtSecret = builder.Configuration["Jwt:Secret"]
+            ?? throw new InvalidOperationException("Jwt:Secret is not configured. Set the Jwt__Secret environment variable.");
+        if (jwtSecret.Length < 32)
+            throw new InvalidOperationException("Jwt:Secret must be at least 32 characters.");
+        var key = Encoding.UTF8.GetBytes(jwtSecret);
         opts.TokenValidationParameters = new TokenValidationParameters
         {
             ValidateIssuerSigningKey = true,
