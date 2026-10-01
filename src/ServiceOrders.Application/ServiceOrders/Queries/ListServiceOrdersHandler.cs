@@ -15,7 +15,7 @@ public class ListServiceOrdersHandler : IRequestHandler<ListServiceOrdersQuery, 
         var page = Math.Max(1, request.Page);
         var pageSize = Math.Clamp(request.PageSize, 1, 100);
 
-        var (items, total) = await _repository.GetPagedAsync(page, pageSize, cancellationToken);
+        var (items, total) = await _repository.GetPagedAsync(page, pageSize, request.Status, request.From, request.To, cancellationToken);
 
         var summaries = items
             .Select(o => new ServiceOrderSummary(o.Id, o.Title, o.Status.ToString(), o.Amount, o.CreatedAt))

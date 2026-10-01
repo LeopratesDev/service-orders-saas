@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { serviceOrdersApi, ServiceOrder, PagedResult } from "@/lib/api";
+import { serviceOrdersApi, ServiceOrder, ListParams } from "@/lib/api";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import StatsChart from "./StatsChart";
@@ -47,6 +47,18 @@ const smBtnStyle: React.CSSProperties = {
   fontWeight: 600,
   textDecoration: "none",
   whiteSpace: "nowrap",
+};
+
+const inputStyle: React.CSSProperties = {
+  padding: "6px 10px",
+  border: "1.5px solid var(--rule)",
+  borderRadius: 4,
+  background: "var(--surface)",
+  color: "var(--ink)",
+  fontFamily: "var(--font-body)",
+  fontSize: 13,
+  cursor: "pointer",
+  outline: "none",
 };
 
 function fmtShort(n: number) {
@@ -226,14 +238,27 @@ function OrderRow({ order, onCancelled }: { order: ServiceOrder; onCancelled: ()
 }
 
 const PAGE_SIZE = 20;
+const ALL_STATUSES = ["Draft", "Pending", "Paid", "Cancelled"] as const;
 
 export default function DashboardPage() {
   const [page, setPage] = useState(1);
+  const [filterStatus, setFilterStatus] = useState("");
+  const [filterFrom, setFilterFrom] = useState("");
+  const [filterTo, setFilterTo] = useState("");
+  const [exporting, setExporting] = useState(false);
   const queryClient = useQueryClient();
 
+  const filters: ListParams = {
+    page,
+    pageSize: PAGE_SIZE,
+    status: filterStatus || undefined,
+    from: filterFrom || undefined,
+    to: filterTo ? filterTo + "T23:59:59Z" : undefined,
+  };
+
   const { data: paged, isLoading, isError } = useQuery({
-    queryKey: ["service-orders", page],
-    queryFn: () => serviceOrdersApi.list(page, PAGE_SIZE),
+    queryKey: ["service-orders", filters],
+    queryFn: () => serviceOrdersApi.list(filters),
   });
 
   const orders = paged?.data;
@@ -250,11 +275,36 @@ export default function DashboardPage() {
       }
     : null;
 
+  function resetPage() { setPage(1); }
+
   function handleLogout() {
     localStorage.removeItem("token");
     localStorage.removeItem("tenantId");
     window.location.href = "/login";
   }
+
+  async function handleExport() {
+    setExporting(true);
+    try {
+      const blob = await serviceOrdersApi.exportCsv({
+        status: filterStatus || undefined,
+        from: filterFrom || undefined,
+        to: filterTo ? filterTo + "T23:59:59Z" : undefined,
+      });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `ordens-${new Date().toISOString().slice(0, 10)}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      alert("Erro ao exportar. Tente novamente.");
+    } finally {
+      setExporting(false);
+    }
+  }
+
+  const hasFilters = filterStatus || filterFrom || filterTo;
 
   return (
     <>
@@ -331,10 +381,65 @@ export default function DashboardPage() {
 
         <StatsChart />
 
+        {/* Filtros + Export */}
+        <div style={{
+          display: "flex",
+          flexWrap: "wrap",
+          alignItems: "center",
+          gap: 8,
+          marginBottom: 16,
+        }}>
+          <select
+            value={filterStatus}
+            onChange={(e) => { setFilterStatus(e.target.value); resetPage(); }}
+            style={inputStyle}
+          >
+            <option value="">Todos os status</option>
+            {ALL_STATUSES.map((s) => (
+              <option key={s} value={s}>{STATUS_LABEL[s]}</option>
+            ))}
+          </select>
+
+          <input
+            type="date"
+            value={filterFrom}
+            onChange={(e) => { setFilterFrom(e.target.value); resetPage(); }}
+            style={inputStyle}
+            title="De"
+          />
+          <span style={{ fontSize: 12, color: "var(--lead)" }}>até</span>
+          <input
+            type="date"
+            value={filterTo}
+            onChange={(e) => { setFilterTo(e.target.value); resetPage(); }}
+            style={inputStyle}
+            title="Até"
+          />
+
+          {hasFilters && (
+            <button
+              onClick={() => { setFilterStatus(""); setFilterFrom(""); setFilterTo(""); resetPage(); }}
+              style={{ ...ghostBtnStyle, fontSize: 12, padding: "5px 10px" }}
+            >
+              Limpar
+            </button>
+          )}
+
+          <div style={{ marginLeft: "auto" }}>
+            <button
+              onClick={handleExport}
+              disabled={exporting}
+              style={{ ...ghostBtnStyle, opacity: exporting ? 0.65 : 1 }}
+            >
+              {exporting ? "Exportando..." : "↓ Exportar CSV"}
+            </button>
+          </div>
+        </div>
+
         {isLoading && <p style={{ color: "var(--lead)", fontSize: 14 }}>Carregando ordens...</p>}
         {isError && <p style={{ color: "#DC2626", fontSize: 14 }}>Erro ao carregar as ordens. Tente novamente.</p>}
 
-        {orders && orders.length === 0 && page === 1 && (
+        {orders && orders.length === 0 && page === 1 && !hasFilters && (
           <div style={{ border: "1px solid var(--rule)", borderRadius: 8, padding: "56px 24px", textAlign: "center" }}>
             <p style={{ fontFamily: "var(--font-brand)", fontSize: 17, fontWeight: 600, margin: "0 0 6px" }}>
               Nenhuma ordem criada ainda
@@ -343,6 +448,14 @@ export default function DashboardPage() {
               Crie sua primeira ordem de serviço para começar a cobrar via Pix.
             </p>
             <Link href="/dashboard/new" style={smBtnStyle}>+ Criar primeira ordem</Link>
+          </div>
+        )}
+
+        {orders && orders.length === 0 && hasFilters && (
+          <div style={{ border: "1px solid var(--rule)", borderRadius: 8, padding: "40px 24px", textAlign: "center" }}>
+            <p style={{ fontSize: 14, color: "var(--lead)", margin: 0 }}>
+              Nenhuma ordem encontrada com os filtros aplicados.
+            </p>
           </div>
         )}
 

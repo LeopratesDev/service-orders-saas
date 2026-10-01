@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using ServiceOrders.Domain.Entities;
+using ServiceOrders.Domain.Enums;
 using ServiceOrders.Domain.Interfaces;
 
 namespace ServiceOrders.Infrastructure.Persistence.Repositories;
@@ -16,9 +17,21 @@ public class ServiceOrderRepository : IServiceOrderRepository
     public async Task<IReadOnlyList<ServiceOrder>> GetAllAsync(CancellationToken ct)
         => await _db.ServiceOrders.OrderByDescending(o => o.CreatedAt).ToListAsync(ct);
 
-    public async Task<(IReadOnlyList<ServiceOrder> Items, int Total)> GetPagedAsync(int page, int pageSize, CancellationToken ct)
+    private IQueryable<ServiceOrder> ApplyFilters(IQueryable<ServiceOrder> q, string? status, DateTime? from, DateTime? to)
     {
-        var query = _db.ServiceOrders.OrderByDescending(o => o.CreatedAt);
+        if (!string.IsNullOrEmpty(status) && Enum.TryParse<ServiceOrderStatus>(status, out var parsed))
+            q = q.Where(o => o.Status == parsed);
+        if (from.HasValue)
+            q = q.Where(o => o.CreatedAt >= from.Value);
+        if (to.HasValue)
+            q = q.Where(o => o.CreatedAt <= to.Value);
+        return q;
+    }
+
+    public async Task<(IReadOnlyList<ServiceOrder> Items, int Total)> GetPagedAsync(
+        int page, int pageSize, string? status = null, DateTime? from = null, DateTime? to = null, CancellationToken ct = default)
+    {
+        var query = ApplyFilters(_db.ServiceOrders.OrderByDescending(o => o.CreatedAt), status, from, to);
         var total = await query.CountAsync(ct);
         var items = await query
             .Skip((page - 1) * pageSize)
@@ -26,6 +39,10 @@ public class ServiceOrderRepository : IServiceOrderRepository
             .ToListAsync(ct);
         return (items, total);
     }
+
+    public async Task<IReadOnlyList<ServiceOrder>> GetAllFilteredAsync(
+        string? status = null, DateTime? from = null, DateTime? to = null, CancellationToken ct = default)
+        => await ApplyFilters(_db.ServiceOrders.OrderByDescending(o => o.CreatedAt), status, from, to).ToListAsync(ct);
 
     public async Task<IReadOnlyList<(string Status, int Count, decimal Total)>> GetStatsByStatusAsync(CancellationToken ct)
     {

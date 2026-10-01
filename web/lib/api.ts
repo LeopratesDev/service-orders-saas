@@ -63,9 +63,25 @@ export interface ServiceOrderStats {
   byStatus: ServiceOrderStatItem[];
 }
 
+export interface ListParams {
+  page?: number;
+  pageSize?: number;
+  status?: string;
+  from?: string;
+  to?: string;
+}
+
+function buildQuery(params: Record<string, string | number | undefined>) {
+  const q = Object.entries(params)
+    .filter(([, v]) => v !== undefined && v !== "")
+    .map(([k, v]) => `${k}=${encodeURIComponent(String(v))}`)
+    .join("&");
+  return q ? `?${q}` : "";
+}
+
 export const serviceOrdersApi = {
-  list: (page = 1, pageSize = 20) =>
-    api.get<PagedResult<ServiceOrder>>(`/api/serviceorders?page=${page}&pageSize=${pageSize}`).then((r) => r.data),
+  list: ({ page = 1, pageSize = 20, status, from, to }: ListParams = {}) =>
+    api.get<PagedResult<ServiceOrder>>(`/api/serviceorders${buildQuery({ page, pageSize, status, from, to })}`).then((r) => r.data),
   get: (id: string) => api.get<ServiceOrderDetail>(`/api/serviceorders/${id}`).then((r) => r.data),
   create: (body: { title: string; description?: string | null; amount: number }) =>
     api.post<{ id: string }>("/api/serviceorders", body).then((r) => r.data),
@@ -75,6 +91,8 @@ export const serviceOrdersApi = {
     api.delete(`/api/serviceorders/${id}`),
   stats: () =>
     api.get<ServiceOrderStats>("/api/serviceorders/stats").then((r) => r.data),
+  exportCsv: (params: Omit<ListParams, "page" | "pageSize"> = {}) =>
+    api.get<Blob>(`/api/serviceorders/export${buildQuery({ status: params.status, from: params.from, to: params.to })}`, { responseType: "blob" }).then((r) => r.data),
 };
 
 export default api;

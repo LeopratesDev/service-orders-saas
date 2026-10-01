@@ -2,7 +2,10 @@ using MediatR;
 
 namespace ServiceOrders.Application.ServiceOrders.Queries;
 
-public record ListServiceOrdersQuery(int Page = 1, int PageSize = 20) : IRequest<PagedResult<ServiceOrderSummary>>;
+public record ListServiceOrdersQuery(
+    int Page = 1, int PageSize = 20,
+    string? Status = null, DateTime? From = null, DateTime? To = null
+) : IRequest<PagedResult<ServiceOrderSummary>>;
 
 public record ServiceOrderSummary(Guid Id, string Title, string Status, decimal Amount, DateTime CreatedAt);
 

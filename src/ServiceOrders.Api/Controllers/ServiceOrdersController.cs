@@ -30,10 +30,25 @@ public class ServiceOrdersController : ControllerBase
     }
 
     [HttpGet]
-    public async Task<IActionResult> GetAll([FromQuery] int page = 1, [FromQuery] int pageSize = 20, CancellationToken ct = default)
+    public async Task<IActionResult> GetAll(
+        [FromQuery] int page = 1, [FromQuery] int pageSize = 20,
+        [FromQuery] string? status = null,
+        [FromQuery] DateTime? from = null, [FromQuery] DateTime? to = null,
+        CancellationToken ct = default)
     {
-        var result = await _mediator.Send(new ListServiceOrdersQuery(page, pageSize), ct);
+        var result = await _mediator.Send(new ListServiceOrdersQuery(page, pageSize, status, from, to), ct);
         return Ok(result);
+    }
+
+    [HttpGet("export")]
+    public async Task<IActionResult> Export(
+        [FromQuery] string? status = null,
+        [FromQuery] DateTime? from = null, [FromQuery] DateTime? to = null,
+        CancellationToken ct = default)
+    {
+        var csv = await _mediator.Send(new ExportServiceOrdersCsvQuery(status, from, to), ct);
+        var filename = $"ordens-{DateTime.UtcNow:yyyy-MM-dd}.csv";
+        return File(csv, "text/csv; charset=utf-8", filename);
     }
 
     [HttpGet("{id:guid}")]
