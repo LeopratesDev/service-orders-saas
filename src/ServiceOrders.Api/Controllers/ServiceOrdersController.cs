@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using ServiceOrders.Application.ServiceOrders.Commands;
 using ServiceOrders.Application.ServiceOrders.Queries;
+using ServiceOrders.Domain.Exceptions;
 namespace ServiceOrders.Api.Controllers;
 
 [ApiController]
@@ -41,5 +42,23 @@ public class ServiceOrdersController : ControllerBase
         var order = await _mediator.Send(new GetServiceOrderByIdQuery(id), ct);
         if (order is null) return NotFound();
         return Ok(order);
+    }
+
+    [HttpDelete("{id:guid}")]
+    public async Task<IActionResult> Cancel(Guid id, CancellationToken ct)
+    {
+        try
+        {
+            await _mediator.Send(new CancelServiceOrderCommand(id), ct);
+            return NoContent();
+        }
+        catch (DomainException ex) when (ex.Message.Contains("not found"))
+        {
+            return NotFound(new { error = ex.Message });
+        }
+        catch (DomainException ex)
+        {
+            return Conflict(new { error = ex.Message });
+        }
     }
 }
