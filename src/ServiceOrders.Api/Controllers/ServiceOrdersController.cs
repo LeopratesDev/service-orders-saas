@@ -1,10 +1,8 @@
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
 using ServiceOrders.Application.ServiceOrders.Commands;
-using ServiceOrders.Domain.Interfaces;
-
+using ServiceOrders.Application.ServiceOrders.Queries;
 namespace ServiceOrders.Api.Controllers;
 
 [ApiController]
@@ -13,13 +11,8 @@ namespace ServiceOrders.Api.Controllers;
 public class ServiceOrdersController : ControllerBase
 {
     private readonly IMediator _mediator;
-    private readonly IServiceOrderRepository _repository;
 
-    public ServiceOrdersController(IMediator mediator, IServiceOrderRepository repository)
-    {
-        _mediator = mediator;
-        _repository = repository;
-    }
+    public ServiceOrdersController(IMediator mediator) => _mediator = mediator;
 
     [HttpPost]
     public async Task<IActionResult> Create([FromBody] CreateServiceOrderCommand command, CancellationToken ct)
@@ -36,17 +29,17 @@ public class ServiceOrdersController : ControllerBase
     }
 
     [HttpGet]
-    public async Task<IActionResult> GetAll(CancellationToken ct)
+    public async Task<IActionResult> GetAll([FromQuery] int page = 1, [FromQuery] int pageSize = 20, CancellationToken ct = default)
     {
-        var orders = await _repository.GetAllAsync(ct);
-        return Ok(orders.Select(o => new { o.Id, o.Title, o.Status, o.Amount, o.CreatedAt }));
+        var result = await _mediator.Send(new ListServiceOrdersQuery(page, pageSize), ct);
+        return Ok(result);
     }
 
     [HttpGet("{id:guid}")]
     public async Task<IActionResult> GetById(Guid id, CancellationToken ct)
     {
-        var order = await _repository.GetByIdAsync(id, ct);
+        var order = await _mediator.Send(new GetServiceOrderByIdQuery(id), ct);
         if (order is null) return NotFound();
-        return Ok(new { order.Id, order.Title, order.Status, order.Amount, order.CreatedAt });
+        return Ok(order);
     }
 }

@@ -16,6 +16,17 @@ public class ServiceOrderRepository : IServiceOrderRepository
     public async Task<IReadOnlyList<ServiceOrder>> GetAllAsync(CancellationToken ct)
         => await _db.ServiceOrders.OrderByDescending(o => o.CreatedAt).ToListAsync(ct);
 
+    public async Task<(IReadOnlyList<ServiceOrder> Items, int Total)> GetPagedAsync(int page, int pageSize, CancellationToken ct)
+    {
+        var query = _db.ServiceOrders.OrderByDescending(o => o.CreatedAt);
+        var total = await query.CountAsync(ct);
+        var items = await query
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .ToListAsync(ct);
+        return (items, total);
+    }
+
     public Task AddAsync(ServiceOrder order, CancellationToken ct)
     {
         _db.ServiceOrders.Add(order);

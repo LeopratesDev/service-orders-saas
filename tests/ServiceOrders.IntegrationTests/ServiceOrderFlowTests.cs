@@ -144,6 +144,33 @@ public class ServiceOrderFlowTests : IAsyncLifetime
         Assert.Equal(HttpStatusCode.NotFound, getResponse.StatusCode);
     }
 
+    [Fact]
+    public async Task GetAll_Paginated_ReturnsCorrectPage()
+    {
+        var tenantId = Guid.NewGuid();
+        var client = CreateClientFor(tenantId);
+
+        // Create 3 orders
+        for (var i = 1; i <= 3; i++)
+        {
+            await client.PostAsJsonAsync("/api/serviceorders", new
+            {
+                title = $"Order {i}",
+                description = (string?)null,
+                amount = i * 100m,
+            });
+        }
+
+        var page1 = await client.GetFromJsonAsync<PagedResponse>("/api/serviceorders?page=1&pageSize=2");
+        var page2 = await client.GetFromJsonAsync<PagedResponse>("/api/serviceorders?page=2&pageSize=2");
+
+        Assert.Equal(3, page1!.Total);
+        Assert.Equal(2, page1.Data.Length);
+        Assert.Equal(1, page2!.Data.Length);
+        Assert.True(page1.HasNext);
+        Assert.False(page2.HasNext);
+    }
+
     private HttpClient CreateClientFor(Guid tenantId)
     {
         var client = _factory.CreateClient();
@@ -153,4 +180,5 @@ public class ServiceOrderFlowTests : IAsyncLifetime
     }
 
     private record IdResponse(Guid Id);
+    private record PagedResponse(object[] Data, int Total, int Page, int PageSize, bool HasNext, bool HasPrevious);
 }
