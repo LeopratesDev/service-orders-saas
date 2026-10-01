@@ -51,6 +51,8 @@ export const serviceOrdersApi = {
     api.post<{ id: string }>("/api/serviceorders", body).then((r) => r.data),
   submitPayment: (id: string) =>
     api.post<{ pixQrCode: string; expiresAt: string }>(`/api/serviceorders/${id}/submit-payment`).then((r) => r.data),
+  cancel: (id: string) =>
+    api.delete(`/api/serviceorders/${id}`),
 };
 
 export default api;

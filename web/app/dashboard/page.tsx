@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { serviceOrdersApi, ServiceOrder, PagedResult } from "@/lib/api";
 import Link from "next/link";
 
@@ -123,7 +123,46 @@ function PixButton({ orderId, amount, status }: { orderId: string; amount: numbe
   );
 }
 
-function OrderRow({ order }: { order: ServiceOrder }) {
+function CancelButton({ orderId, onCancelled }: { orderId: string; onCancelled: () => void }) {
+  const [isPending, setIsPending] = useState(false);
+
+  async function handleClick() {
+    if (!confirm("Cancelar esta ordem de serviço?")) return;
+    setIsPending(true);
+    try {
+      await serviceOrdersApi.cancel(orderId);
+      onCancelled();
+    } catch {
+      alert("Erro ao cancelar. Tente novamente.");
+    } finally {
+      setIsPending(false);
+    }
+  }
+
+  return (
+    <button
+      onClick={handleClick}
+      disabled={isPending}
+      style={{
+        padding: "5px 10px",
+        border: "1.5px solid var(--rule)",
+        borderRadius: 4,
+        background: "transparent",
+        color: "var(--lead)",
+        fontFamily: "var(--font-body)",
+        fontSize: 12,
+        fontWeight: 500,
+        cursor: isPending ? "not-allowed" : "pointer",
+        opacity: isPending ? 0.65 : 1,
+        whiteSpace: "nowrap",
+      }}
+    >
+      Cancelar
+    </button>
+  );
+}
+
+function OrderRow({ order, onCancelled }: { order: ServiceOrder; onCancelled: () => void }) {
   const chip = STATUS_CHIP[order.status];
   const [hover, setHover] = useState(false);
 
@@ -163,9 +202,14 @@ function OrderRow({ order }: { order: ServiceOrder }) {
         {fmt.format(order.amount)}
       </td>
       <td style={{ padding: "13px 16px", borderBottom: "1px solid var(--rule)", verticalAlign: "middle", textAlign: "right" }}>
-        {(order.status === "Pending" || order.status === "Paid") && (
-          <PixButton orderId={order.id} amount={order.amount} status={order.status} />
-        )}
+        <div style={{ display: "flex", gap: 6, justifyContent: "flex-end" }}>
+          {(order.status === "Pending" || order.status === "Paid") && (
+            <PixButton orderId={order.id} amount={order.amount} status={order.status} />
+          )}
+          {(order.status === "Draft" || order.status === "Pending") && (
+            <CancelButton orderId={order.id} onCancelled={onCancelled} />
+          )}
+        </div>
       </td>
     </tr>
   );
@@ -175,6 +219,7 @@ const PAGE_SIZE = 20;
 
 export default function DashboardPage() {
   const [page, setPage] = useState(1);
+  const queryClient = useQueryClient();
 
   const { data: paged, isLoading, isError } = useQuery({
     queryKey: ["service-orders", page],
@@ -314,7 +359,11 @@ export default function DashboardPage() {
                 </thead>
                 <tbody>
                   {orders.map((order) => (
-                    <OrderRow key={order.id} order={order} />
+                    <OrderRow
+                      key={order.id}
+                      order={order}
+                      onCancelled={() => queryClient.invalidateQueries({ queryKey: ["service-orders"] })}
+                    />
                   ))}
                 </tbody>
               </table>

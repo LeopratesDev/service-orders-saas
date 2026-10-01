@@ -1,6 +1,7 @@
 using FluentValidation;
 using FluentValidation.AspNetCore;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using ServiceOrders.Application.ServiceOrders.Validators;
@@ -57,6 +58,9 @@ builder.Services.AddCors(opts => opts.AddDefaultPolicy(p =>
 builder.Services.AddAuthorization();
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddInfrastructure(builder.Configuration);
+
+builder.Services.AddDataProtection()
+    .PersistKeysToDbContext<ServiceOrders.Infrastructure.Persistence.AppDbContext>();
 
 var app = builder.Build();
 
