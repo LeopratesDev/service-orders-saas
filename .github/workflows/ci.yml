@@ -25,6 +25,9 @@ jobs:
       - name: Build
         run: dotnet build --no-restore -c Release
 
+      - name: Run unit tests
+        run: dotnet test tests/ServiceOrders.UnitTests --no-build -c Release --logger "trx;LogFileName=unit-results.trx"
+
       - name: Run integration tests
         run: dotnet test tests/ServiceOrders.IntegrationTests --no-build -c Release --logger "trx;LogFileName=results.trx"
 
