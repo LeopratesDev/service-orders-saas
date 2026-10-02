@@ -229,7 +229,7 @@ function OrderRow({ order, onCancelled }: { order: ServiceOrder; onCancelled: ()
           style={{ display: "flex", gap: 6, justifyContent: "flex-end" }}
           onClick={(e) => e.stopPropagation()}
         >
-          {(order.status === "Pending" || order.status === "Paid") && (
+          {order.status === "Draft" && (
             <PixButton orderId={order.id} amount={order.amount} status={order.status} />
           )}
           {(order.status === "Draft" || order.status === "Pending") && (

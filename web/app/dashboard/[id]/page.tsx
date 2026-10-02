@@ -237,7 +237,7 @@ export default function OrderDetailPage() {
 
             {(order.status === "Draft" || order.status === "Pending") && (
               <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-                {(order.status === "Draft" || order.status === "Pending") && (
+                {order.status === "Draft" && (
                   <button
                     onClick={handlePix}
                     disabled={actionPending !== null}
