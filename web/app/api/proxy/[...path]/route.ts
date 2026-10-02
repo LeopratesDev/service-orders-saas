@@ -29,7 +29,7 @@ async function handler(
     const upstream = await fetch(url, { method: req.method, headers, body });
 
     if (upstream.status === 204 || upstream.status === 304) {
-      return new NextResponse(null, { status: upstream.status });
+      return new NextResponse(null, { status: 200 });
     }
 
     const data = await upstream.text();
