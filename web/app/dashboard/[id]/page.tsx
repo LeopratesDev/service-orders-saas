@@ -99,7 +99,9 @@ export default function OrderDetailPage() {
     setActionPending("pix");
     try {
       const result = await serviceOrdersApi.submitPayment(id);
-      toast(`Pix gerado! Valor: ${fmt.format(order.amount)}\n\nCopie o código:\n${result.pixQrCode}`, "success");
+      const isDemo = result.pixQrCode.startsWith("00020126") && result.pixQrCode.endsWith("DEMO");
+      const prefix = isDemo ? "[DEMO] " : "";
+      toast(`${prefix}Pix gerado! Valor: ${fmt.format(order.amount)}\n\nCopie o código:\n${result.pixQrCode}`, "success");
       queryClient.invalidateQueries({ queryKey: ["service-order", id] });
       queryClient.invalidateQueries({ queryKey: ["service-orders"] });
     } catch {

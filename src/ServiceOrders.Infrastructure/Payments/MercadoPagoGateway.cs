@@ -26,6 +26,14 @@ public class MercadoPagoGateway : IPaymentGateway
 
     public async Task<PaymentResult> CreatePixChargeAsync(PaymentRequest request, CancellationToken ct)
     {
+        if (string.IsNullOrEmpty(_opts.AccessToken))
+        {
+            var demoQr = $"00020126580014BR.GOV.BCB.PIX0136{request.OrderId}" +
+                         $"520400005303986540{request.Amount:F2}5802BR" +
+                         $"5925DEMO ORDENS DE SERVICO6009SAO PAULO62070503***6304DEMO";
+            return new PaymentResult($"DEMO-{request.OrderId}", demoQr, DateTime.UtcNow.AddMinutes(30));
+        }
+
         var body = new
         {
             transaction_amount = request.Amount,
