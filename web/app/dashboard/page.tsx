@@ -266,6 +266,12 @@ export default function DashboardPage() {
     queryFn: () => serviceOrdersApi.list(filters),
   });
 
+  const { data: stats } = useQuery({
+    queryKey: ["service-orders-stats"],
+    queryFn: () => serviceOrdersApi.stats(),
+    staleTime: 30_000,
+  });
+
   const orders = paged?.data;
 
   const tenantId =
@@ -274,9 +280,9 @@ export default function DashboardPage() {
   const totals = paged
     ? {
         total:   paged.total,
-        paid:    orders!.filter((o) => o.status === "Paid").reduce((s, o) => s + o.amount, 0),
-        pending: orders!.filter((o) => o.status === "Pending").reduce((s, o) => s + o.amount, 0),
-        draft:   orders!.filter((o) => o.status === "Draft").reduce((s, o) => s + o.amount, 0),
+        paid:    stats?.byStatus.find((s) => s.status === "Paid")?.total ?? 0,
+        pending: stats?.byStatus.find((s) => s.status === "Pending")?.total ?? 0,
+        draft:   stats?.byStatus.find((s) => s.status === "Draft")?.total ?? 0,
       }
     : null;
 
