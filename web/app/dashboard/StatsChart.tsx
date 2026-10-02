@@ -138,7 +138,11 @@ export default function StatsChart() {
               interval={0}
             />
             <YAxis
-              tickFormatter={(v) => `R$${(v / 1000).toFixed(0)}k`}
+              tickFormatter={(v: number) => {
+                if (v === 0) return "0";
+                if (v >= 1000) return `${(v / 1000).toFixed(0)}k`;
+                return String(v);
+              }}
               tick={{ fontSize: 9, fill: "var(--lead)", fontFamily: "var(--font-mono)" }}
               axisLine={false}
               tickLine={false}
