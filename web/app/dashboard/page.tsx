@@ -1,12 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { serviceOrdersApi, ServiceOrder, ListParams } from "@/lib/api";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import StatsChart from "./StatsChart";
 import { useToast } from "@/app/components/Toast";
+import QRCode from "qrcode";
 
 const STATUS_LABEL: Record<ServiceOrder["status"], string> = {
   Draft:     "Rascunho",
@@ -100,15 +101,134 @@ function StatCell({ label, value, color }: { label: string; value: string; color
   );
 }
 
-function PixButton({ orderId, amount, status }: { orderId: string; amount: number; status: ServiceOrder["status"] }) {
-  const [isPending, setIsPending] = useState(false);
+function PixModal({ pixCode, amount, onClose }: { pixCode: string; amount: number; onClose: () => void }) {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const [copied, setCopied] = useState(false);
   const { toast } = useToast();
+
+  useEffect(() => {
+    if (canvasRef.current) {
+      QRCode.toCanvas(canvasRef.current, pixCode, { width: 200, margin: 1 }).catch(() => {});
+    }
+  }, [pixCode]);
+
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) { if (e.key === "Escape") onClose(); }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  async function handleCopy() {
+    try {
+      await navigator.clipboard.writeText(pixCode);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      toast("Não foi possível copiar. Copie manualmente.", "error");
+    }
+  }
+
+  return (
+    <div
+      onClick={onClose}
+      style={{
+        position: "fixed", inset: 0, zIndex: 100,
+        background: "rgba(0,0,0,0.55)",
+        display: "flex", alignItems: "center", justifyContent: "center",
+        padding: 16,
+      }}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          background: "var(--surface)",
+          border: "1px solid var(--rule)",
+          borderRadius: 12,
+          padding: "28px 24px",
+          maxWidth: 360,
+          width: "100%",
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          gap: 16,
+        }}
+      >
+        <div style={{ width: "100%", display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+          <div>
+            <div style={{ fontFamily: "var(--font-brand)", fontSize: 17, fontWeight: 700, color: "var(--ink)" }}>
+              Pix gerado
+            </div>
+            <div style={{ fontSize: 12.5, color: "var(--lead)", marginTop: 2 }}>
+              {fmt.format(amount)}
+            </div>
+          </div>
+          <button
+            onClick={onClose}
+            style={{ background: "none", border: "none", cursor: "pointer", color: "var(--lead)", fontSize: 20, lineHeight: 1, padding: 2 }}
+          >
+            ×
+          </button>
+        </div>
+
+        <canvas ref={canvasRef} style={{ borderRadius: 8 }} />
+
+        <div style={{ width: "100%", fontSize: 11, color: "var(--lead)", textAlign: "center" }}>
+          Ou copie o código abaixo:
+        </div>
+
+        <div style={{
+          width: "100%",
+          background: "var(--bg)",
+          border: "1px solid var(--rule)",
+          borderRadius: 6,
+          padding: "10px 12px",
+          fontFamily: "var(--font-mono)",
+          fontSize: 10,
+          color: "var(--ink)",
+          wordBreak: "break-all",
+          lineHeight: 1.5,
+          maxHeight: 80,
+          overflowY: "auto",
+        }}>
+          {pixCode}
+        </div>
+
+        <button
+          onClick={handleCopy}
+          style={{
+            width: "100%",
+            padding: "10px",
+            background: copied ? "var(--s-paid-bg)" : "var(--accent)",
+            color: copied ? "var(--s-paid)" : "#fff",
+            border: "none",
+            borderRadius: 6,
+            fontFamily: "var(--font-body)",
+            fontSize: 13,
+            fontWeight: 600,
+            cursor: "pointer",
+            transition: "background 0.2s",
+          }}
+        >
+          {copied ? "✓ Copiado!" : "Copiar código Pix"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function PixButton({ orderId, amount }: { orderId: string; amount: number }) {
+  const [isPending, setIsPending] = useState(false);
+  const [pixCode, setPixCode] = useState<string | null>(null);
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
 
   async function handleClick() {
     setIsPending(true);
     try {
       const result = await serviceOrdersApi.submitPayment(orderId);
-      toast(`Pix gerado! Valor: ${fmt.format(amount)}\n\nCopie o código:\n${result.pixQrCode}`, "success");
+      setPixCode(result.pixQrCode);
+      queryClient.invalidateQueries({ queryKey: ["service-orders"] });
+      queryClient.invalidateQueries({ queryKey: ["service-orders-stats"] });
     } catch {
       toast("Erro ao gerar cobrança Pix. Tente novamente.", "error");
     } finally {
@@ -117,25 +237,30 @@ function PixButton({ orderId, amount, status }: { orderId: string; amount: numbe
   }
 
   return (
-    <button
-      onClick={handleClick}
-      disabled={isPending}
-      style={{
-        padding: "5px 10px",
-        border: "1.5px solid var(--rule)",
-        borderRadius: 4,
-        background: "transparent",
-        color: "var(--accent)",
-        fontFamily: "var(--font-body)",
-        fontSize: 12,
-        fontWeight: 600,
-        cursor: isPending ? "not-allowed" : "pointer",
-        whiteSpace: "nowrap",
-        opacity: isPending ? 0.65 : 1,
-      }}
-    >
-      {status === "Paid" ? "Ver Pix" : "Gerar Pix"}
-    </button>
+    <>
+      <button
+        onClick={handleClick}
+        disabled={isPending}
+        style={{
+          padding: "5px 10px",
+          border: "1.5px solid var(--rule)",
+          borderRadius: 4,
+          background: "transparent",
+          color: "var(--accent)",
+          fontFamily: "var(--font-body)",
+          fontSize: 12,
+          fontWeight: 600,
+          cursor: isPending ? "not-allowed" : "pointer",
+          whiteSpace: "nowrap",
+          opacity: isPending ? 0.65 : 1,
+        }}
+      >
+        {isPending ? "Gerando..." : "Gerar Pix"}
+      </button>
+      {pixCode && (
+        <PixModal pixCode={pixCode} amount={amount} onClose={() => setPixCode(null)} />
+      )}
+    </>
   );
 }
 
@@ -230,7 +355,7 @@ function OrderRow({ order, onCancelled }: { order: ServiceOrder; onCancelled: ()
           onClick={(e) => e.stopPropagation()}
         >
           {order.status === "Draft" && (
-            <PixButton orderId={order.id} amount={order.amount} status={order.status} />
+            <PixButton orderId={order.id} amount={order.amount} />
           )}
           {(order.status === "Draft" || order.status === "Pending") && (
             <CancelButton orderId={order.id} onCancelled={onCancelled} />

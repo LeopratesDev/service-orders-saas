@@ -1,11 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useParams, useRouter } from "next/navigation";
 import { serviceOrdersApi, ServiceOrderDetail } from "@/lib/api";
 import Link from "next/link";
 import { useToast } from "@/app/components/Toast";
+import QRCode from "qrcode";
 
 type Status = ServiceOrderDetail["status"];
 
@@ -81,12 +82,128 @@ const btnBase: React.CSSProperties = {
   whiteSpace: "nowrap",
 };
 
+function PixModal({ pixCode, amount, onClose }: { pixCode: string; amount: number; onClose: () => void }) {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const [copied, setCopied] = useState(false);
+  const { toast } = useToast();
+
+  useEffect(() => {
+    if (canvasRef.current) {
+      QRCode.toCanvas(canvasRef.current, pixCode, { width: 200, margin: 1 }).catch(() => {});
+    }
+  }, [pixCode]);
+
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) { if (e.key === "Escape") onClose(); }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  async function handleCopy() {
+    try {
+      await navigator.clipboard.writeText(pixCode);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      toast("Não foi possível copiar. Copie manualmente.", "error");
+    }
+  }
+
+  return (
+    <div
+      onClick={onClose}
+      style={{
+        position: "fixed", inset: 0, zIndex: 100,
+        background: "rgba(0,0,0,0.55)",
+        display: "flex", alignItems: "center", justifyContent: "center",
+        padding: 16,
+      }}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          background: "var(--surface)",
+          border: "1px solid var(--rule)",
+          borderRadius: 12,
+          padding: "28px 24px",
+          maxWidth: 360,
+          width: "100%",
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          gap: 16,
+        }}
+      >
+        <div style={{ width: "100%", display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+          <div>
+            <div style={{ fontFamily: "var(--font-brand)", fontSize: 17, fontWeight: 700, color: "var(--ink)" }}>
+              Pix gerado
+            </div>
+            <div style={{ fontSize: 12.5, color: "var(--lead)", marginTop: 2 }}>
+              {fmt.format(amount)}
+            </div>
+          </div>
+          <button
+            onClick={onClose}
+            style={{ background: "none", border: "none", cursor: "pointer", color: "var(--lead)", fontSize: 20, lineHeight: 1, padding: 2 }}
+          >
+            ×
+          </button>
+        </div>
+
+        <canvas ref={canvasRef} style={{ borderRadius: 8 }} />
+
+        <div style={{ width: "100%", fontSize: 11, color: "var(--lead)", textAlign: "center" }}>
+          Ou copie o código abaixo:
+        </div>
+
+        <div style={{
+          width: "100%",
+          background: "var(--bg)",
+          border: "1px solid var(--rule)",
+          borderRadius: 6,
+          padding: "10px 12px",
+          fontFamily: "var(--font-mono)",
+          fontSize: 10,
+          color: "var(--ink)",
+          wordBreak: "break-all",
+          lineHeight: 1.5,
+          maxHeight: 80,
+          overflowY: "auto",
+        }}>
+          {pixCode}
+        </div>
+
+        <button
+          onClick={handleCopy}
+          style={{
+            width: "100%",
+            padding: "10px",
+            background: copied ? "var(--s-paid-bg)" : "var(--accent)",
+            color: copied ? "var(--s-paid)" : "#fff",
+            border: "none",
+            borderRadius: 6,
+            fontFamily: "var(--font-body)",
+            fontSize: 13,
+            fontWeight: 600,
+            cursor: "pointer",
+            transition: "background 0.2s",
+          }}
+        >
+          {copied ? "✓ Copiado!" : "Copiar código Pix"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export default function OrderDetailPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const [actionPending, setActionPending] = useState<"pix" | "cancel" | null>(null);
+  const [pixCode, setPixCode] = useState<string | null>(null);
 
   const { data: order, isLoading, isError } = useQuery({
     queryKey: ["service-order", id],
@@ -99,11 +216,10 @@ export default function OrderDetailPage() {
     setActionPending("pix");
     try {
       const result = await serviceOrdersApi.submitPayment(id);
-      const isDemo = result.pixQrCode.startsWith("00020126") && result.pixQrCode.endsWith("DEMO");
-      const prefix = isDemo ? "[DEMO] " : "";
-      toast(`${prefix}Pix gerado! Valor: ${fmt.format(order.amount)}\n\nCopie o código:\n${result.pixQrCode}`, "success");
+      setPixCode(result.pixQrCode);
       queryClient.invalidateQueries({ queryKey: ["service-order", id] });
       queryClient.invalidateQueries({ queryKey: ["service-orders"] });
+      queryClient.invalidateQueries({ queryKey: ["service-orders-stats"] });
     } catch {
       toast("Erro ao gerar cobrança Pix. Tente novamente.", "error");
     } finally {
@@ -128,6 +244,9 @@ export default function OrderDetailPage() {
 
   return (
     <>
+      {pixCode && order && (
+        <PixModal pixCode={pixCode} amount={order.amount} onClose={() => setPixCode(null)} />
+      )}
       <nav style={{
         position: "sticky", top: 0, zIndex: 10,
         background: "var(--surface)",
