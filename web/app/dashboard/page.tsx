@@ -216,7 +216,7 @@ function PixModal({ pixCode, amount, onClose }: { pixCode: string; amount: numbe
   );
 }
 
-function PixButton({ orderId, amount, onPixGenerated }: { orderId: string; amount: number; onPixGenerated: (code: string) => void }) {
+function PixButton({ orderId, amount, label = "Gerar Pix", onPixGenerated }: { orderId: string; amount: number; label?: string; onPixGenerated: (code: string) => void }) {
   const [isPending, setIsPending] = useState(false);
   const { toast } = useToast();
 
@@ -250,7 +250,7 @@ function PixButton({ orderId, amount, onPixGenerated }: { orderId: string; amoun
         opacity: isPending ? 0.65 : 1,
       }}
     >
-      {isPending ? "Gerando..." : "Gerar Pix"}
+      {isPending ? "Carregando..." : label}
     </button>
   );
 }
@@ -347,6 +347,9 @@ function OrderRow({ order, onCancelled, onPixGenerated }: { order: ServiceOrder;
         >
           {order.status === "Draft" && (
             <PixButton orderId={order.id} amount={order.amount} onPixGenerated={(code) => onPixGenerated(code, order.amount)} />
+          )}
+          {order.status === "Pending" && (
+            <PixButton orderId={order.id} amount={order.amount} label="Ver Pix" onPixGenerated={(code) => onPixGenerated(code, order.amount)} />
           )}
           {(order.status === "Draft" || order.status === "Pending") && (
             <CancelButton orderId={order.id} onCancelled={onCancelled} />

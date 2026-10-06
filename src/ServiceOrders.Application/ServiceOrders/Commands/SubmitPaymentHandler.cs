@@ -20,13 +20,20 @@ public class SubmitPaymentHandler : IRequestHandler<SubmitPaymentCommand, Submit
         var order = await _repository.GetByIdAsync(request.OrderId, cancellationToken)
             ?? throw new DomainException($"Order {request.OrderId} not found.");
 
-        order.Submit();
+        // Allow regenerating PIX for already-pending orders (idempotent retry)
+        if (order.Status == Domain.Enums.ServiceOrderStatus.Draft)
+        {
+            order.Submit();
+            await _repository.SaveChangesAsync(cancellationToken);
+        }
+        else if (order.Status != Domain.Enums.ServiceOrderStatus.Pending)
+        {
+            throw new DomainException($"Cannot generate PIX for an order with status '{order.Status}'.");
+        }
 
         var idempotencyKey = $"order-{order.Id}-{DateTime.UtcNow:yyyyMMdd}";
         var paymentRequest = new PaymentRequest(order.Id, order.Amount, idempotencyKey);
         var result = await _paymentGateway.CreatePixChargeAsync(paymentRequest, cancellationToken);
-
-        await _repository.SaveChangesAsync(cancellationToken);
 
         return new SubmitPaymentResult(result.PixQrCode, result.ExpiresAt);
     }
