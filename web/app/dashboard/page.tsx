@@ -216,19 +216,15 @@ function PixModal({ pixCode, amount, onClose }: { pixCode: string; amount: numbe
   );
 }
 
-function PixButton({ orderId, amount }: { orderId: string; amount: number }) {
+function PixButton({ orderId, amount, onPixGenerated }: { orderId: string; amount: number; onPixGenerated: (code: string) => void }) {
   const [isPending, setIsPending] = useState(false);
-  const [pixCode, setPixCode] = useState<string | null>(null);
   const { toast } = useToast();
-  const queryClient = useQueryClient();
 
   async function handleClick() {
     setIsPending(true);
     try {
       const result = await serviceOrdersApi.submitPayment(orderId);
-      setPixCode(result.pixQrCode);
-      queryClient.invalidateQueries({ queryKey: ["service-orders"] });
-      queryClient.invalidateQueries({ queryKey: ["service-orders-stats"] });
+      onPixGenerated(result.pixQrCode);
     } catch {
       toast("Erro ao gerar cobrança Pix. Tente novamente.", "error");
     } finally {
@@ -237,30 +233,25 @@ function PixButton({ orderId, amount }: { orderId: string; amount: number }) {
   }
 
   return (
-    <>
-      <button
-        onClick={handleClick}
-        disabled={isPending}
-        style={{
-          padding: "5px 10px",
-          border: "1.5px solid var(--rule)",
-          borderRadius: 4,
-          background: "transparent",
-          color: "var(--accent)",
-          fontFamily: "var(--font-body)",
-          fontSize: 12,
-          fontWeight: 600,
-          cursor: isPending ? "not-allowed" : "pointer",
-          whiteSpace: "nowrap",
-          opacity: isPending ? 0.65 : 1,
-        }}
-      >
-        {isPending ? "Gerando..." : "Gerar Pix"}
-      </button>
-      {pixCode && (
-        <PixModal pixCode={pixCode} amount={amount} onClose={() => setPixCode(null)} />
-      )}
-    </>
+    <button
+      onClick={handleClick}
+      disabled={isPending}
+      style={{
+        padding: "5px 10px",
+        border: "1.5px solid var(--rule)",
+        borderRadius: 4,
+        background: "transparent",
+        color: "var(--accent)",
+        fontFamily: "var(--font-body)",
+        fontSize: 12,
+        fontWeight: 600,
+        cursor: isPending ? "not-allowed" : "pointer",
+        whiteSpace: "nowrap",
+        opacity: isPending ? 0.65 : 1,
+      }}
+    >
+      {isPending ? "Gerando..." : "Gerar Pix"}
+    </button>
   );
 }
 
@@ -305,64 +296,75 @@ function CancelButton({ orderId, onCancelled }: { orderId: string; onCancelled: 
   );
 }
 
-function OrderRow({ order, onCancelled }: { order: ServiceOrder; onCancelled: () => void }) {
+function OrderRow({ order, onCancelled, onRefresh }: { order: ServiceOrder; onCancelled: () => void; onRefresh: () => void }) {
   const chip = STATUS_CHIP[order.status];
   const [hover, setHover] = useState(false);
+  const [pixCode, setPixCode] = useState<string | null>(null);
   const router = useRouter();
 
+  function handlePixClose() {
+    setPixCode(null);
+    onRefresh();
+  }
+
   return (
-    <tr
-      onMouseEnter={() => setHover(true)}
-      onMouseLeave={() => setHover(false)}
-      onClick={() => router.push(`/dashboard/${order.id}`)}
-      style={{
-        background: hover ? "color-mix(in srgb, var(--accent) 3.5%, var(--surface))" : "var(--surface)",
-        cursor: "pointer",
-      }}
-    >
-      <td style={{ padding: "13px 16px", borderBottom: "1px solid var(--rule)", verticalAlign: "middle" }}>
-        <div style={{ fontWeight: 500, fontSize: 14 }}>{order.title}</div>
-        <span style={{ fontFamily: "var(--font-mono)", fontSize: 10.5, color: "var(--lead)", display: "block", marginTop: 2 }}>
-          #{order.id.slice(0, 8)}
-        </span>
-      </td>
-      <td style={{ padding: "13px 16px", borderBottom: "1px solid var(--rule)", verticalAlign: "middle", fontFamily: "var(--font-mono)", fontSize: 12, color: "var(--lead)", whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" }}>
-        {new Date(order.createdAt).toLocaleDateString("pt-BR")}
-      </td>
-      <td style={{ padding: "13px 16px", borderBottom: "1px solid var(--rule)", verticalAlign: "middle" }}>
-        <span style={{
-          display: "inline-flex",
-          alignItems: "center",
-          gap: 5,
-          padding: "3px 8px 3px 6px",
-          borderRadius: 99,
-          background: chip.bg,
-          color: chip.color,
-          fontSize: 11.5,
-          fontWeight: 600,
-          whiteSpace: "nowrap",
-        }}>
-          <span style={{ width: 6, height: 6, borderRadius: "50%", background: chip.color, flexShrink: 0 }} />
-          {STATUS_LABEL[order.status]}
-        </span>
-      </td>
-      <td style={{ padding: "13px 16px", borderBottom: "1px solid var(--rule)", verticalAlign: "middle", textAlign: "right", fontFamily: "var(--font-mono)", fontVariantNumeric: "tabular-nums", fontWeight: 500, fontSize: 14, whiteSpace: "nowrap" }}>
-        {fmt.format(order.amount)}
-      </td>
-      <td style={{ padding: "13px 16px", borderBottom: "1px solid var(--rule)", verticalAlign: "middle", textAlign: "right" }}>
-        <div
-          style={{ display: "flex", gap: 6, justifyContent: "flex-end" }}
-          onClick={(e) => e.stopPropagation()}
-        >
-          {order.status === "Draft" && (
-            <PixButton orderId={order.id} amount={order.amount} />
-          )}
-          {(order.status === "Draft" || order.status === "Pending") && (
-            <CancelButton orderId={order.id} onCancelled={onCancelled} />
-          )}
-        </div>
-      </td>
-    </tr>
+    <>
+      {pixCode && (
+        <PixModal pixCode={pixCode} amount={order.amount} onClose={handlePixClose} />
+      )}
+      <tr
+        onMouseEnter={() => setHover(true)}
+        onMouseLeave={() => setHover(false)}
+        onClick={() => router.push(`/dashboard/${order.id}`)}
+        style={{
+          background: hover ? "color-mix(in srgb, var(--accent) 3.5%, var(--surface))" : "var(--surface)",
+          cursor: "pointer",
+        }}
+      >
+        <td style={{ padding: "13px 16px", borderBottom: "1px solid var(--rule)", verticalAlign: "middle" }}>
+          <div style={{ fontWeight: 500, fontSize: 14 }}>{order.title}</div>
+          <span style={{ fontFamily: "var(--font-mono)", fontSize: 10.5, color: "var(--lead)", display: "block", marginTop: 2 }}>
+            #{order.id.slice(0, 8)}
+          </span>
+        </td>
+        <td style={{ padding: "13px 16px", borderBottom: "1px solid var(--rule)", verticalAlign: "middle", fontFamily: "var(--font-mono)", fontSize: 12, color: "var(--lead)", whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" }}>
+          {new Date(order.createdAt).toLocaleDateString("pt-BR")}
+        </td>
+        <td style={{ padding: "13px 16px", borderBottom: "1px solid var(--rule)", verticalAlign: "middle" }}>
+          <span style={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 5,
+            padding: "3px 8px 3px 6px",
+            borderRadius: 99,
+            background: chip.bg,
+            color: chip.color,
+            fontSize: 11.5,
+            fontWeight: 600,
+            whiteSpace: "nowrap",
+          }}>
+            <span style={{ width: 6, height: 6, borderRadius: "50%", background: chip.color, flexShrink: 0 }} />
+            {STATUS_LABEL[order.status]}
+          </span>
+        </td>
+        <td style={{ padding: "13px 16px", borderBottom: "1px solid var(--rule)", verticalAlign: "middle", textAlign: "right", fontFamily: "var(--font-mono)", fontVariantNumeric: "tabular-nums", fontWeight: 500, fontSize: 14, whiteSpace: "nowrap" }}>
+          {fmt.format(order.amount)}
+        </td>
+        <td style={{ padding: "13px 16px", borderBottom: "1px solid var(--rule)", verticalAlign: "middle", textAlign: "right" }}>
+          <div
+            style={{ display: "flex", gap: 6, justifyContent: "flex-end" }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {order.status === "Draft" && (
+              <PixButton orderId={order.id} amount={order.amount} onPixGenerated={setPixCode} />
+            )}
+            {(order.status === "Draft" || order.status === "Pending") && (
+              <CancelButton orderId={order.id} onCancelled={onCancelled} />
+            )}
+          </div>
+        </td>
+      </tr>
+    </>
   );
 }
 
@@ -624,6 +626,10 @@ export default function DashboardPage() {
                       key={order.id}
                       order={order}
                       onCancelled={() => queryClient.invalidateQueries({ queryKey: ["service-orders"] })}
+                      onRefresh={() => {
+                        queryClient.invalidateQueries({ queryKey: ["service-orders"] });
+                        queryClient.invalidateQueries({ queryKey: ["service-orders-stats"] });
+                      }}
                     />
                   ))}
                 </tbody>
