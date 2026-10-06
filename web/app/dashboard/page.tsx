@@ -296,75 +296,64 @@ function CancelButton({ orderId, onCancelled }: { orderId: string; onCancelled: 
   );
 }
 
-function OrderRow({ order, onCancelled, onRefresh }: { order: ServiceOrder; onCancelled: () => void; onRefresh: () => void }) {
+function OrderRow({ order, onCancelled, onPixGenerated }: { order: ServiceOrder; onCancelled: () => void; onPixGenerated: (code: string, amount: number) => void }) {
   const chip = STATUS_CHIP[order.status];
   const [hover, setHover] = useState(false);
-  const [pixCode, setPixCode] = useState<string | null>(null);
   const router = useRouter();
 
-  function handlePixClose() {
-    setPixCode(null);
-    onRefresh();
-  }
-
   return (
-    <>
-      {pixCode && (
-        <PixModal pixCode={pixCode} amount={order.amount} onClose={handlePixClose} />
-      )}
-      <tr
-        onMouseEnter={() => setHover(true)}
-        onMouseLeave={() => setHover(false)}
-        onClick={() => router.push(`/dashboard/${order.id}`)}
-        style={{
-          background: hover ? "color-mix(in srgb, var(--accent) 3.5%, var(--surface))" : "var(--surface)",
-          cursor: "pointer",
-        }}
-      >
-        <td style={{ padding: "13px 16px", borderBottom: "1px solid var(--rule)", verticalAlign: "middle" }}>
-          <div style={{ fontWeight: 500, fontSize: 14 }}>{order.title}</div>
-          <span style={{ fontFamily: "var(--font-mono)", fontSize: 10.5, color: "var(--lead)", display: "block", marginTop: 2 }}>
-            #{order.id.slice(0, 8)}
-          </span>
-        </td>
-        <td style={{ padding: "13px 16px", borderBottom: "1px solid var(--rule)", verticalAlign: "middle", fontFamily: "var(--font-mono)", fontSize: 12, color: "var(--lead)", whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" }}>
-          {new Date(order.createdAt).toLocaleDateString("pt-BR")}
-        </td>
-        <td style={{ padding: "13px 16px", borderBottom: "1px solid var(--rule)", verticalAlign: "middle" }}>
-          <span style={{
-            display: "inline-flex",
-            alignItems: "center",
-            gap: 5,
-            padding: "3px 8px 3px 6px",
-            borderRadius: 99,
-            background: chip.bg,
-            color: chip.color,
-            fontSize: 11.5,
-            fontWeight: 600,
-            whiteSpace: "nowrap",
-          }}>
-            <span style={{ width: 6, height: 6, borderRadius: "50%", background: chip.color, flexShrink: 0 }} />
-            {STATUS_LABEL[order.status]}
-          </span>
-        </td>
-        <td style={{ padding: "13px 16px", borderBottom: "1px solid var(--rule)", verticalAlign: "middle", textAlign: "right", fontFamily: "var(--font-mono)", fontVariantNumeric: "tabular-nums", fontWeight: 500, fontSize: 14, whiteSpace: "nowrap" }}>
-          {fmt.format(order.amount)}
-        </td>
-        <td style={{ padding: "13px 16px", borderBottom: "1px solid var(--rule)", verticalAlign: "middle", textAlign: "right" }}>
-          <div
-            style={{ display: "flex", gap: 6, justifyContent: "flex-end" }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            {order.status === "Draft" && (
-              <PixButton orderId={order.id} amount={order.amount} onPixGenerated={setPixCode} />
-            )}
-            {(order.status === "Draft" || order.status === "Pending") && (
-              <CancelButton orderId={order.id} onCancelled={onCancelled} />
-            )}
-          </div>
-        </td>
-      </tr>
-    </>
+    <tr
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => setHover(false)}
+      onClick={() => router.push(`/dashboard/${order.id}`)}
+      style={{
+        background: hover ? "color-mix(in srgb, var(--accent) 3.5%, var(--surface))" : "var(--surface)",
+        cursor: "pointer",
+      }}
+    >
+      <td style={{ padding: "13px 16px", borderBottom: "1px solid var(--rule)", verticalAlign: "middle" }}>
+        <div style={{ fontWeight: 500, fontSize: 14 }}>{order.title}</div>
+        <span style={{ fontFamily: "var(--font-mono)", fontSize: 10.5, color: "var(--lead)", display: "block", marginTop: 2 }}>
+          #{order.id.slice(0, 8)}
+        </span>
+      </td>
+      <td style={{ padding: "13px 16px", borderBottom: "1px solid var(--rule)", verticalAlign: "middle", fontFamily: "var(--font-mono)", fontSize: 12, color: "var(--lead)", whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" }}>
+        {new Date(order.createdAt).toLocaleDateString("pt-BR")}
+      </td>
+      <td style={{ padding: "13px 16px", borderBottom: "1px solid var(--rule)", verticalAlign: "middle" }}>
+        <span style={{
+          display: "inline-flex",
+          alignItems: "center",
+          gap: 5,
+          padding: "3px 8px 3px 6px",
+          borderRadius: 99,
+          background: chip.bg,
+          color: chip.color,
+          fontSize: 11.5,
+          fontWeight: 600,
+          whiteSpace: "nowrap",
+        }}>
+          <span style={{ width: 6, height: 6, borderRadius: "50%", background: chip.color, flexShrink: 0 }} />
+          {STATUS_LABEL[order.status]}
+        </span>
+      </td>
+      <td style={{ padding: "13px 16px", borderBottom: "1px solid var(--rule)", verticalAlign: "middle", textAlign: "right", fontFamily: "var(--font-mono)", fontVariantNumeric: "tabular-nums", fontWeight: 500, fontSize: 14, whiteSpace: "nowrap" }}>
+        {fmt.format(order.amount)}
+      </td>
+      <td style={{ padding: "13px 16px", borderBottom: "1px solid var(--rule)", verticalAlign: "middle", textAlign: "right" }}>
+        <div
+          style={{ display: "flex", gap: 6, justifyContent: "flex-end" }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          {order.status === "Draft" && (
+            <PixButton orderId={order.id} amount={order.amount} onPixGenerated={(code) => onPixGenerated(code, order.amount)} />
+          )}
+          {(order.status === "Draft" || order.status === "Pending") && (
+            <CancelButton orderId={order.id} onCancelled={onCancelled} />
+          )}
+        </div>
+      </td>
+    </tr>
   );
 }
 
@@ -377,8 +366,15 @@ export default function DashboardPage() {
   const [filterFrom, setFilterFrom] = useState("");
   const [filterTo, setFilterTo] = useState("");
   const [exporting, setExporting] = useState(false);
+  const [pixModal, setPixModal] = useState<{ code: string; amount: number } | null>(null);
   const queryClient = useQueryClient();
   const { toast } = useToast();
+
+  function handlePixModalClose() {
+    setPixModal(null);
+    queryClient.invalidateQueries({ queryKey: ["service-orders"] });
+    queryClient.invalidateQueries({ queryKey: ["service-orders-stats"] });
+  }
 
   const filters: ListParams = {
     page,
@@ -446,6 +442,9 @@ export default function DashboardPage() {
 
   return (
     <>
+      {pixModal && (
+        <PixModal pixCode={pixModal.code} amount={pixModal.amount} onClose={handlePixModalClose} />
+      )}
       <nav style={{
         position: "sticky",
         top: 0,
@@ -626,10 +625,7 @@ export default function DashboardPage() {
                       key={order.id}
                       order={order}
                       onCancelled={() => queryClient.invalidateQueries({ queryKey: ["service-orders"] })}
-                      onRefresh={() => {
-                        queryClient.invalidateQueries({ queryKey: ["service-orders"] });
-                        queryClient.invalidateQueries({ queryKey: ["service-orders-stats"] });
-                      }}
+                      onPixGenerated={(code, amount) => setPixModal({ code, amount })}
                     />
                   ))}
                 </tbody>
