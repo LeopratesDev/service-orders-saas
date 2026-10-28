@@ -216,7 +216,7 @@ function PixModal({ pixCode, amount, onClose }: { pixCode: string; amount: numbe
   );
 }
 
-function PixButton({ orderId, amount, label = "Gerar Pix", onPixGenerated }: { orderId: string; amount: number; label?: string; onPixGenerated: (code: string) => void }) {
+function PixButton({ orderId, amount: _amount, label = "Gerar Pix", onPixGenerated }: { orderId: string; amount: number; label?: string; onPixGenerated: (code: string) => void }) {
   const [isPending, setIsPending] = useState(false);
   const { toast } = useToast();
 

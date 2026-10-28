@@ -1,5 +1,6 @@
 "use client";
 
+import React from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { serviceOrdersApi } from "@/lib/api";
 import { useRouter } from "next/navigation";
@@ -67,7 +68,7 @@ export default function NewOrderPage() {
       <main style={{ maxWidth: 560, marginInline: "auto", padding: "32px 16px" }}>
         {/* Header */}
         <div style={{ marginBottom: 28 }}>
-          <h2 style={{ fontFamily: "var(--font-brand)", fontSize: 24, fontWeight: 700, letterSpacing: "-0.025em", margin: "0 0 4px", textWrap: "balance" as any }}>
+          <h2 style={{ fontFamily: "var(--font-brand)", fontSize: 24, fontWeight: 700, letterSpacing: "-0.025em", margin: "0 0 4px", textWrap: "balance" as React.CSSProperties["textWrap"] }}>
             Nova ordem de serviço
           </h2>
           <p style={{ fontSize: 13.5, color: "var(--lead)", margin: 0 }}>
